@@ -1,11 +1,18 @@
 // DeckEngine service worker: działanie offline.
 // Przy zmianie plików aplikacji podnieś numer wersji poniżej (i APP_VER w index.html).
 const PREFIX = "deckengine-";
-const VER = PREFIX + "shell-v4";
-const SHELL = ["./", "index.html", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png"];
+const VER = PREFIX + "shell-v5";
+// Pliki konieczne do działania offline – jeśli któregoś brakuje, instalacja się nie uda.
+const CORE = ["./", "index.html", "manifest.webmanifest"];
+// Ikony: zapisujemy, jeśli są; ich brak nie może blokować działania offline.
+const OPTIONAL = ["icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png"];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(VER).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(VER)
+      .then((c) => c.addAll(CORE).then(() => Promise.allSettled(OPTIONAL.map((u) => c.add(u)))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener("activate", (e) => {
