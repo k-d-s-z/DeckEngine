@@ -1,0 +1,78 @@
+/* =====================  MOTYW „TERMINAL / HUD"  ===================== */
+@font-face { font-family: "DE Mono"; font-weight: 400; font-style: normal; src: url(data:font/woff;base64,@@FONT_REGULAR@@) format("woff"); }
+@font-face { font-family: "DE Mono"; font-weight: 700; font-style: normal; src: url(data:font/woff;base64,@@FONT_BOLD@@) format("woff"); }
+:root {
+  --bg: #080b10; --panel: #0e131b; --panel2: #151c27; --line: #223042; --text: #e4edf5; --muted: #8696aa;
+  --accent: #2ee6d3; --accent-ink: #021a18; --radius: 6px;
+  --mono: "DE Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --glow: 0 0 14px rgba(46, 230, 211, .35);
+  --brk: linear-gradient(var(--accent), var(--accent)) top left / 11px 1px no-repeat, linear-gradient(var(--accent), var(--accent)) top left / 1px 11px no-repeat,
+         linear-gradient(var(--accent), var(--accent)) top right / 11px 1px no-repeat, linear-gradient(var(--accent), var(--accent)) top right / 1px 11px no-repeat,
+         linear-gradient(var(--accent), var(--accent)) bottom left / 11px 1px no-repeat, linear-gradient(var(--accent), var(--accent)) bottom left / 1px 11px no-repeat,
+         linear-gradient(var(--accent), var(--accent)) bottom right / 11px 1px no-repeat, linear-gradient(var(--accent), var(--accent)) bottom right / 1px 11px no-repeat;
+}
+body {
+  background: linear-gradient(rgba(46, 230, 211, .04) 1px, transparent 1px) 0 0 / 32px 32px, linear-gradient(90deg, rgba(46, 230, 211, .04) 1px, transparent 1px) 0 0 / 32px 32px, var(--bg);
+}
+h1, h2, h3 { font-family: var(--mono); letter-spacing: .02em; }
+h1 { text-transform: uppercase; letter-spacing: .14em; font-size: 1.1rem; }
+.topbar, .bar { background: rgba(14, 19, 27, .92); }
+.topbar { border-bottom-color: var(--accent); box-shadow: 0 1px 0 rgba(46, 230, 211, .25); }
+.bar { border-top-color: var(--accent); }
+.btn, .seg-btn, .lang-btn, .badge, .sec-h, .copies, .ctl output, .game-name, .game-sub, .preview-flag, .tile-off-badge, .bk-chip strong, .setting-text strong, .inst-chip, .thumb-n, .turn-h { font-family: var(--mono); }
+.btn { border-radius: 4px; text-transform: uppercase; letter-spacing: .06em; font-size: .82rem; }
+.btn-sub { text-transform: none; letter-spacing: 0; font-family: system-ui, sans-serif; }
+.btn.primary { box-shadow: var(--glow); }
+.btn.danger { border-radius: 4px; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.icon-btn { border-radius: 8px; border: 1px solid var(--line); background: var(--panel2); }
+.icon-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.badge { border-radius: 4px; min-width: 24px; background: var(--accent); color: var(--accent-ink); box-shadow: 0 0 0 2px var(--bg); }
+.badge.muted { background: var(--panel2); color: var(--text); border: 1px solid var(--line); }
+.welcome, .game, .tile, .busy-box, dialog.dlg, .inst-chip, .setting, .bk-chip, .toast, .orient-hint { border-radius: var(--radius); }
+.welcome, .busy-box { position: relative; border: 1px solid var(--line); }
+.game, .tile { border: 1px solid var(--line); }
+.game::after, .welcome::after, .busy-box::after, dialog.dlg::after { content: ""; position: absolute; inset: -1px; pointer-events: none; background: var(--brk); border-radius: inherit; }
+.game.new { border: 1px dashed var(--line); }
+.game.new::after { display: none; }
+.game::after, dialog.dlg::after { inset: 0; }
+.library .game-grid { display: flex; flex-wrap: wrap; justify-content: center; }
+.library .game { flex: 0 0 180px; width: 180px; }
+.library .game.new { order: -1; flex: 1 0 100%; width: 100%; flex-direction: row; align-items: center; justify-content: center; gap: 12px; min-height: 68px; border: 1px solid var(--accent); background: rgba(46, 230, 211, .08); color: var(--accent); box-shadow: var(--glow), inset 0 0 18px rgba(46, 230, 211, .08); }
+.library .game.new:hover { background: rgba(46, 230, 211, .16); }
+.library .game.new .noimg { width: auto; aspect-ratio: auto; background: none; color: var(--accent); }
+.library .game.new .noimg .ico { width: 28px; height: 28px; stroke-width: 2.5; }
+.library .game.new .game-name { padding: 0; width: auto; color: var(--accent); font-size: .95rem; letter-spacing: .12em; }
+.importer .topbar .btn { white-space: nowrap; padding: 10px 12px; }
+.importer .btn { font-size: .72rem; letter-spacing: .03em; }
+.imp-panel .row.wrap .btn { flex: 1 1 auto; padding: 10px 10px; min-height: 42px; }
+.game:hover { border-color: var(--accent); }
+.game-main img, .noimg, .tile img, .thumb img { border-radius: 2px; }
+.game-name { text-transform: uppercase; letter-spacing: .06em; font-size: .85rem; }
+.game-sub { font-size: .75rem; letter-spacing: .04em; }
+.sec-h { color: var(--accent); }
+.sec-h::before { content: "// "; opacity: .6; }
+.setting { border: 1px solid var(--line); }
+.seg-btn { border-radius: 4px; text-transform: uppercase; letter-spacing: .05em; font-size: .78rem; }
+.seg-btn.on { box-shadow: var(--glow); }
+.title-input, .text-input, .tile-name, .notes { border-radius: 4px; }
+.title-input:focus, .text-input:focus, .tile-name:focus, .notes:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.lang-btn.on { color: var(--accent); }
+.draw-btn { width: 74px; height: 74px; border-radius: 14px; background: var(--accent); box-shadow: 0 0 0 3px var(--bg), 0 0 0 4px var(--accent), 0 0 22px rgba(46, 230, 211, .45); }
+.draw-btn.empty { background: var(--panel2); box-shadow: 0 0 0 3px var(--bg), 0 0 0 4px var(--accent); }
+.preview-flag, .tile-off-badge { border-radius: 4px; text-transform: uppercase; letter-spacing: .06em; font-size: .72rem; }
+.toast, .orient-hint { background: var(--panel2); }
+dialog.dlg { border-color: var(--accent); }
+dialog.dlg.sheet { border-radius: 10px 10px 0 0; }
+.bar-track { border-radius: 0; height: 4px; }
+.bar-fill { box-shadow: var(--glow); }
+.spinner { border-radius: 4px; border-width: 2px; }
+.thumb { border-radius: 4px; }
+.inst-chip { border-color: var(--accent); font-size: .82rem; }
+.bk-chip { font-size: .82rem; }
+/* HUD w widoku gry */
+.hud-read { position: absolute; left: 8px; bottom: 8px; z-index: 3; pointer-events: none; font: 700 .68rem/1 var(--mono); letter-spacing: .08em; color: var(--accent); background: rgba(8, 11, 16, .78); border: 1px solid rgba(46, 230, 211, .45); border-radius: 3px; padding: 5px 7px; white-space: pre; }
+.card-img, .gcard { animation: none; }
+.gcard { border-radius: 6px; }
+
+.file-hidden { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }

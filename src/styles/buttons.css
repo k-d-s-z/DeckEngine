@@ -1,0 +1,30 @@
+/* ---------- przyciski ---------- */
+.icon-btn {
+  position: relative; display: inline-grid; place-items: center;
+  width: 48px; height: 48px; border-radius: 50%; border: 0; padding: 0;
+  background: var(--panel2); color: var(--text); cursor: pointer; flex: none;
+}
+.icon-btn.small { width: 44px; height: 44px; }
+.icon-btn.danger { color: var(--danger); }
+.icon-btn:active:not(:disabled) { transform: scale(.94); }
+.ico { display: block; }
+.btn {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  border: 1px solid var(--line); background: var(--panel2); color: var(--text);
+  border-radius: 12px; padding: 12px 16px; min-height: 46px; cursor: pointer; text-align: center; justify-content: center;
+}
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 600; }
+.btn.danger { background: transparent; color: var(--danger); border-color: var(--danger); }
+.btn.ghost { background: transparent; }
+.btn.big { flex-direction: row; gap: 8px; padding: 14px 22px; }
+.btn-sub { font-size: .8rem; font-weight: 400; opacity: .75; }
+.btn-label { font-weight: inherit; }
+.badge {
+  position: absolute; top: -3px; right: -3px; min-width: 22px; height: 22px; padding: 0 6px;
+  border-radius: 11px; background: #fff; color: #111; font-size: .78rem; font-weight: 700;
+  display: grid; place-items: center; box-shadow: 0 0 0 2px var(--panel);
+}
+.badge.muted { background: var(--line); color: var(--text); }
+.check { display: flex; align-items: center; gap: 8px; padding: 6px 0; cursor: pointer; }
+.check input { width: 20px; height: 20px; accent-color: var(--accent); }
+

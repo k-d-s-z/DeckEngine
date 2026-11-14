@@ -1,0 +1,18 @@
+/* ---------- okna dialogowe ---------- */
+dialog.dlg {
+  border: 1px solid var(--line); border-radius: 18px; background: var(--panel); color: var(--text);
+  padding: 18px; width: min(440px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto;
+}
+dialog.dlg::backdrop { background: rgba(0, 0, 0, .65); }
+dialog.dlg.sheet { margin: auto auto 0; border-radius: 18px 18px 0 0; width: min(560px, 100%); padding-bottom: calc(18px + env(safe-area-inset-bottom)); }
+dialog.dlg.sheet.wide { width: min(720px, 100%); }
+.dlg h3 { margin-bottom: 8px; }
+.dlg-text { color: var(--muted); }
+.dlg-buttons { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.dlg-buttons.row { flex-direction: row; justify-content: flex-end; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.thumb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.thumb { position: relative; padding: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #0b0c10; cursor: pointer; }
+.thumb img { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: contain; }
+.thumb-n { position: absolute; left: 4px; bottom: 4px; background: rgba(0, 0, 0, .7); border-radius: 8px; padding: 0 6px; font-size: .75rem; }
+
