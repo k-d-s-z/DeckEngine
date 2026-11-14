@@ -176,6 +176,7 @@
       undo: ["M9 14L4 9l5-5", "M4 9h10.5a5.5 5.5 0 010 11H11"],
       shuffle: ["M16 3h5v5", "M4 20L21 3", "M21 16v5h-5", "M15 15l6 6", "M4 4l5 5"],
       draw: ["M12 2L2 7l10 5 10-5-10-5z", "M2 17l10 5 10-5", "M2 12l10 5 10-5"],
+      discard: ["M5 17V5a2 2 0 012-2h6", "M11 7h6a2 2 0 012 2v10a2 2 0 01-2 2h-6a2 2 0 01-2-2V9a2 2 0 012-2z", "M12 12.5l4 4", "M16 12.5l-4 4"],
       list: ["M8 6h13", "M8 12h13", "M8 18h13", "M3 6h.01", "M3 12h.01", "M3 18h.01"],
       edit: ["M12 20h9", "M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"],
       plus: ["M12 5v14", "M5 12h14"],
@@ -191,6 +192,16 @@
       prev: ["M15 18l-6-6 6-6"],
       next: ["M9 18l6-6-6-6"],
     };
+  function cardsWord(n) {
+    if (I18N_LANG === "en") return n === 1 ? "card" : "cards";
+    return n === 1 ? "karta" : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? "karty" : "kart";
+  }
+  // „Talia: 24 karty”; gdy karty mają kopie, dodatkowo liczba unikalnych kart.
+  function deckText(uniq, deck) {
+    return deck === uniq
+      ? I18N_T("Talia: {} {}", deck, cardsWord(deck))
+      : I18N_T("Talia: {} {} (unikalnych: {})", deck, cardsWord(deck), uniq);
+  }
   function W(t) {
     return `<svg class="ico" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${(mn[t] || []).map((n) => `<path d="${n}"/>`).join("")}</svg>`;
   }
@@ -2363,7 +2374,7 @@
               d(
                 "div",
                 { class: "game-sub" },
-                p.cardCount ? I18N_T("{} kart · w talii {}", p.cardCount, p.deckSize) : I18N_T("brak kart"),
+                p.cardCount ? deckText(p.cardCount, p.deckSize) : I18N_T("brak kart"),
               ),
             ),
             G("edit", I18N_T("Edytuj grę ") + p.name, () => K("#/edit/" + p.id), "small game-edit"),
@@ -2567,7 +2578,7 @@
           "aria-label": I18N_T("Odrzucone karty"),
           title: I18N_T("Odrzucone karty"),
           onclick: v,
-          html: W("list"),
+          html: W("discard"),
         },
         f,
       ),
@@ -2647,13 +2658,10 @@
         d(
           "div",
           { class: "hud-read", "aria-hidden": "true" },
-          I18N_T("TALIA") +
-            " " +
-            String(o.draw.length).padStart(3, "0") +
-            "  " +
-            I18N_T("ODRZ.") +
-            " " +
-            String(o.discard.length).padStart(3, "0"),
+          d("span", { class: "hud-k" }, I18N_T("TALIA")),
+          d("b", {}, String(o.draw.length)),
+          d("span", { class: "hud-k" }, I18N_T("ODRZUCONE")),
+          d("b", {}, String(o.discard.length)),
         ),
       );
       (c && u.append(d("div", { class: "preview-flag" }, I18N_T("Podgląd karty – dotknij, aby wrócić"))),
@@ -2868,7 +2876,7 @@
                     chkO();
                   },
                 },
-                I18N_T("Pełny ekran i blokada"),
+                I18N_T("Pełen ekran i blokada"),
               )
             : null,
           G(
@@ -3066,7 +3074,7 @@
       bulk.hidden = !n.length;
       let y = n.reduce((v, B) => v + B.copies, 0);
       ((c.textContent = n.length
-        ? I18N_T("{} kart · w talii {}{}", n.length, y, y !== n.length ? I18N_T(" (z kopiami)") : "")
+        ? deckText(n.length, y)
         : I18N_T("Brak kart. Dodaj obrazy albo pociętą na karty stronę PDF.")),
         u.replaceChildren(...n.map(g)));
     }
@@ -3203,7 +3211,7 @@
     }
     function w() {
       let y = n.reduce((v, B) => v + B.copies, 0);
-      c.textContent = I18N_T("{} kart · w talii {}{}", n.length, y, y !== n.length ? I18N_T(" (z kopiami)") : "");
+      c.textContent = deckText(n.length, y);
     }
     async function A(y) {
       (await nt({
@@ -3376,7 +3384,7 @@
       }
     );
   }
-  var APP_VER = "2026.11.14-v5";
+  var APP_VER = "2026.11.14-v6";
   function showUpd() {
     if (document.querySelector(".upd-bar")) return;
     let ub = d(
