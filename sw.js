@@ -1,7 +1,7 @@
 // DeckEngine service worker: działanie offline.
-// Przy zmianie plików aplikacji podnieś numer wersji poniżej.
+// Przy zmianie plików aplikacji podnieś numer wersji poniżej (i APP_VER w index.html).
 const PREFIX = "deckengine-";
-const VER = PREFIX + "shell-v2";
+const VER = PREFIX + "shell-v4";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -25,20 +25,29 @@ self.addEventListener("fetch", (e) => {
 
   if (req.mode === "navigate") {
     // Strona: najpierw sieć (świeża wersja), a przy braku odpowiedzi w 3 s lub offline – kopia z pamięci.
+    let servedStale = false;
     const net = fetch(req);
     // Kopię robimy od razu (zanim odpowiedź zacznie być czytana) i czekamy na jej zapis.
     const store = net
-      .then((res) => {
+      .then(async (res) => {
         if (!res.ok) return;
         const copy = res.clone();
-        return caches.open(VER).then((c) => c.put("index.html", copy));
+        const c = await caches.open(VER);
+        const old = await c.match("index.html");
+        await c.put("index.html", copy);
+        // Użytkownik dostał starą kopię, a w sieci jest nowsza – powiadom stronę.
+        const changed = old && (old.headers.get("etag") !== res.headers.get("etag") || old.headers.get("content-length") !== res.headers.get("content-length"));
+        if (servedStale && changed) {
+          const cs = await self.clients.matchAll({ type: "window" });
+          cs.forEach((cl) => cl.postMessage({ type: "update" }));
+        }
       })
       .catch(() => {});
     e.waitUntil(store);
     const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 3000));
     e.respondWith(
       Promise.race([net.catch(() => null), timeout]).then(
-        (res) => res || caches.match("index.html").then((hit) => hit || net)
+        (res) => res || caches.match("index.html", { cacheName: VER }).then((hit) => { if (hit) servedStale = true; return hit || net; })
       )
     );
     return;
@@ -46,7 +55,7 @@ self.addEventListener("fetch", (e) => {
 
   // Pozostałe pliki: z pamięci, a jeśli ich nie ma – z sieci (i zapisz).
   e.respondWith(
-    caches.match(req).then((hit) => hit || fetch(req).then((res) => {
+    caches.open(VER).then((c) => c.match(req)).then((hit) => hit || fetch(req).then((res) => {
       if (res.ok) {
         const copy = res.clone();
         e.waitUntil(caches.open(VER).then((c) => c.put(req, copy)));
