@@ -32,6 +32,9 @@
             (n.onsuccess = () => t(n.result)),
             (n.onerror = () => e(n.error)),
             (n.onblocked = () => e(new Error(I18N_T("Baza danych jest zablokowana przez inną kartę przeglądarki.")))));
+        }).catch((err) => {
+          Pt = void 0; // nieudane otwarcie nie może zostać zapamiętane – kolejna próba otworzy bazę od nowa
+          throw err;
         })),
       Pt
     );
@@ -176,7 +179,12 @@
       undo: ["M9 14L4 9l5-5", "M4 9h10.5a5.5 5.5 0 010 11H11"],
       shuffle: ["M16 3h5v5", "M4 20L21 3", "M21 16v5h-5", "M15 15l6 6", "M4 4l5 5"],
       draw: ["M12 2L2 7l10 5 10-5-10-5z", "M2 17l10 5 10-5", "M2 12l10 5 10-5"],
-      discard: ["M5 17V5a2 2 0 012-2h6", "M11 7h6a2 2 0 012 2v10a2 2 0 01-2 2h-6a2 2 0 01-2-2V9a2 2 0 012-2z", "M12 12.5l4 4", "M16 12.5l-4 4"],
+      discard: [
+        "M5 17V5a2 2 0 012-2h6",
+        "M11 7h6a2 2 0 012 2v10a2 2 0 01-2 2h-6a2 2 0 01-2-2V9a2 2 0 012-2z",
+        "M12 12.5l4 4",
+        "M16 12.5l-4 4",
+      ],
       list: ["M8 6h13", "M8 12h13", "M8 18h13", "M3 6h.01", "M3 12h.01", "M3 18h.01"],
       edit: ["M12 20h9", "M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"],
       plus: ["M12 5v14", "M5 12h14"],
@@ -660,8 +668,7 @@
       s = a.getUint16(o + 10, !0),
       r = a.getUint32(o + 12, !0),
       i = a.getUint32(o + 16, !0);
-    if (s === 65535 || i === 4294967295 || r === 4294967295)
-      throw zipErr(I18N_T("Archiwa ZIP64 nie są obsługiwane."));
+    if (s === 65535 || i === 4294967295 || r === 4294967295) throw zipErr(I18N_T("Archiwa ZIP64 nie są obsługiwane."));
     // jeden dysk, spójna liczba wpisów, katalog w całości przed końcem pliku i rozsądnego rozmiaru
     if (a.getUint16(o + 4, !0) !== 0 || a.getUint16(o + 6, !0) !== 0 || a.getUint16(o + 8, !0) !== s)
       throw zipErr(I18N_T("Uszkodzony katalog ZIP."));
@@ -710,7 +717,7 @@
             bad = () => zipErr(I18N_T("Plik „{}” w archiwum jest uszkodzony (błędna suma kontrolna).", P));
           if (g === 0) {
             if (w !== A) throw zipErr(I18N_T("Uszkodzony wpis ZIP: ") + P);
-            if (((crcAdd(4294967295, new Uint8Array(await B.arrayBuffer())) ^ 4294967295) >>> 0) !== crc) throw bad();
+            if ((crcAdd(4294967295, new Uint8Array(await B.arrayBuffer())) ^ 4294967295) >>> 0 !== crc) throw bad();
             return B;
           }
           if (g === 8) {
@@ -731,7 +738,7 @@
                 chunks.push(q);
               }
               if (cnt !== A) throw zipErr(I18N_T("Uszkodzony wpis ZIP: ") + P);
-              if (((cc ^ 4294967295) >>> 0) !== crc) throw bad();
+              if ((cc ^ 4294967295) >>> 0 !== crc) throw bad();
             } catch (err) {
               try {
                 await rd.cancel();
@@ -912,64 +919,77 @@
     }
     let totBytes = 0;
     let r = new Map(a.map((l) => [l.name, l])),
-      i = { added: 0, replaced: 0, copied: 0, skipped: 0, cards: 0 },
+      i = { added: 0, replaced: 0, copied: 0, skipped: 0, failed: 0, cards: 0 },
+      firstErr = null,
       c = s.games.reduce((l, f) => l + (f.cards?.length || 0), 0),
       u = 0;
     for (let l of s.games) {
       if (typeof l?.id != "string" || l.id.length > 100 || !Array.isArray(l.cards)) continue;
-      let f = l.id,
-        p = "new",
-        m = await tt(l.id);
-      if (m) {
-        let U = e ? await e(m, l) : "copy";
-        if (U === "skip" || U == null) {
-          (i.skipped++, (u += l.cards.length));
-          continue;
+      // Każda gra jest importowana osobno: błąd jednej nie przerywa pozostałych, a wynik jest zliczany.
+      try {
+        let f = l.id,
+          p = "new",
+          m = await tt(l.id);
+        if (m) {
+          let U = e ? await e(m, l) : "copy";
+          if (U === "skip" || U == null) {
+            (i.skipped++, (u += l.cards.length));
+            continue;
+          }
+          ((p = U === "replace" ? "replace" : "copy"), p === "copy" && (f = H()));
         }
-        ((p = U === "replace" ? "replace" : "copy"), p === "copy" && (f = H()));
+        let g = [],
+          w = 0;
+        for (let U of l.cards) {
+          n?.(u++ / Math.max(1, c));
+          let R = typeof U?.file == "string" ? r.get(U.file) : null;
+          if (!R) continue;
+          let L = at(U.file);
+          if (!L) continue;
+          let z = new Blob([await R.blob()], { type: L });
+          if ((totBytes += z.size) > 1e9) {
+            let big = new Error(I18N_T("Kopia jest zbyt duża po rozpakowaniu (limit {} GB).", 1));
+            throw ((big.fatal = !0), big);
+          }
+          let { thumb: P, w: y, h: v } = await Oe(z);
+          g.push({
+            id: H(), // zawsze nowe ID – identyfikatory z kopii nie mogą nadpisać kart innych gier
+            gameId: f,
+            order: w++,
+            name: String(U.name ?? "").slice(0, 120),
+            copies: Math.max(0, Math.min(99, Number.isFinite(+U.copies) ? Math.round(+U.copies) : 1)),
+            blob: z,
+            thumb: P,
+            w: y,
+            h: v,
+          });
+        }
+        let A = Date.now();
+        (await ue(
+          {
+            id: f,
+            name: String(l.name || "Gra").slice(0, 120) + (p === "copy" ? I18N_T(" (kopia)") : ""),
+            notes: String(l.notes || "").slice(0, 20000),
+            drawCount: Math.max(1, Math.min(6, Math.round(+l.drawCount) || 1)),
+            orientation: ["portrait", "landscape"].includes(l.orientation) ? l.orientation : "auto",
+            createdAt: Number.isFinite(+l.createdAt) && +l.createdAt > 0 ? +l.createdAt : A,
+            updatedAt: A,
+            cover: g.length ? g[0].thumb : null,
+            cardCount: g.length,
+            deckSize: g.reduce((U, R) => U + R.copies, 0),
+          },
+          g,
+        ),
+          (i.cards += g.length),
+          p === "new" ? i.added++ : p === "replace" ? i.replaced++ : i.copied++);
+      } catch (err) {
+        if (err?.fatal) throw err;
+        console.error(err);
+        i.failed++;
+        firstErr ||= err;
       }
-      let g = [],
-        w = 0;
-      for (let U of l.cards) {
-        n?.(u++ / Math.max(1, c));
-        let R = typeof U?.file == "string" ? r.get(U.file) : null;
-        if (!R) continue;
-        let L = at(U.file);
-        if (!L) continue;
-        let z = new Blob([await R.blob()], { type: L });
-        if ((totBytes += z.size) > 2e9) throw new Error(I18N_T("Kopia jest zbyt duża po rozpakowaniu (limit {} GB).", 2));
-        let { thumb: P, w: y, h: v } = await Oe(z);
-        g.push({
-          id: p === "copy" ? H() : typeof U.id == "string" && U.id.length <= 100 ? U.id : H(),
-          gameId: f,
-          order: w++,
-          name: String(U.name ?? "").slice(0, 120),
-          copies: Math.max(0, Math.min(99, Number.isFinite(+U.copies) ? Math.round(+U.copies) : 1)),
-          blob: z,
-          thumb: P,
-          w: y,
-          h: v,
-        });
-      }
-      let A = Date.now();
-      (await ue(
-        {
-          id: f,
-          name: String(l.name || "Gra").slice(0, 120) + (p === "copy" ? I18N_T(" (kopia)") : ""),
-          notes: String(l.notes || "").slice(0, 20000),
-          drawCount: Math.max(1, Math.min(6, Math.round(+l.drawCount) || 1)),
-          orientation: ["portrait", "landscape"].includes(l.orientation) ? l.orientation : "auto",
-          createdAt: Number.isFinite(+l.createdAt) && +l.createdAt > 0 ? +l.createdAt : A,
-          updatedAt: A,
-          cover: g.length ? g[0].thumb : null,
-          cardCount: g.length,
-          deckSize: g.reduce((U, R) => U + R.copies, 0),
-        },
-        g,
-      ),
-        (i.cards += g.length),
-        p === "new" ? i.added++ : p === "replace" ? i.replaced++ : i.copied++);
     }
+    if (i.failed && !(i.added + i.replaced + i.copied)) throw firstErr;
     return (n?.(1), i);
   }
   var st = Object.freeze({ cols: 3, rows: 3, mL: 5, mT: 5, mR: 5, mB: 5, gx: 2, gy: 2, inset: 0 });
@@ -2499,11 +2519,7 @@
               { class: "game-main", type: "button", onclick: () => K("#/play/" + p.id) },
               p.cover ? d("img", { src: n(p.cover), alt: "" }) : d("div", { class: "noimg", html: W("image") }),
               d("div", { class: "game-name" }, p.name),
-              d(
-                "div",
-                { class: "game-sub" },
-                p.cardCount ? deckText(p.cardCount, p.deckSize) : I18N_T("brak kart"),
-              ),
+              d("div", { class: "game-sub" }, p.cardCount ? deckText(p.cardCount, p.deckSize) : I18N_T("brak kart")),
             ),
             G("edit", I18N_T("Edytuj grę ") + p.name, () => K("#/edit/" + p.id), "small game-edit"),
           ),
@@ -2635,7 +2651,12 @@
         });
         (m.close(), mt());
         let w = g.added + g.replaced + g.copied;
-        (D(w ? I18N_T("Zaimportowano gry: {} (kart: {}).", w, g.cards) : I18N_T("Nic nie zaimportowano."), 4e3), Bt());
+        (D(
+          (w ? I18N_T("Zaimportowano gry: {} (kart: {}).", w, g.cards) : I18N_T("Nic nie zaimportowano.")) +
+            (g.failed ? " " + I18N_T("Nie udało się zaimportować gier: {}.", g.failed) : ""),
+          g.failed ? 8e3 : 4e3,
+        ),
+          Bt());
       } catch (g) {
         (m.close(), console.error(g), D(I18N_T("Import nie powiódł się: ") + (g?.message || g), 7e3));
       }
@@ -2668,7 +2689,12 @@
       DN = Math.max(1, Math.min(6, e.drawCount | 0 || 1)),
       o = await de(t);
     o ? Me(o, n) : (o = ze(t, n));
-    let s = () => pe(o).catch((b) => console.error(b));
+    let saveWarned = !1,
+      s = () =>
+        pe(o).catch((b) => {
+          console.error(b);
+          saveWarned || ((saveWarned = !0), D(I18N_T("Nie udało się zapisać stanu partii (brak miejsca?)."), 6e3));
+        });
     s();
     let r = new Map(),
       i = (b) => {
@@ -3517,7 +3543,7 @@
       }
     );
   }
-  var APP_VER = "2026.11.14-v7";
+  var APP_VER = "2026.11.15-v8";
   function showUpd() {
     if (document.querySelector(".upd-bar")) return;
     let ub = d(

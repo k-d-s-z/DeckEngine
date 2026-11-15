@@ -1,7 +1,7 @@
 // DeckEngine service worker: działanie offline.
 // Przy zmianie plików aplikacji podnieś numer wersji poniżej (i APP_VER w index.html).
 const PREFIX = "deckengine-";
-const VER = PREFIX + "shell-v7";
+const VER = PREFIX + "shell-v8";
 // Pliki konieczne do działania offline – jeśli któregoś brakuje, instalacja się nie uda.
 const CORE = ["./", "index.html", "manifest.webmanifest"];
 // Ikony: zapisujemy, jeśli są; ich brak nie może blokować działania offline.
@@ -52,9 +52,11 @@ self.addEventListener("fetch", (e) => {
       .catch(() => {});
     e.waitUntil(store);
     const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 3000));
+    // Odpowiedź błędna (np. 500/503) traktujemy jak brak odpowiedzi – lepsza jest kopia z pamięci.
+    const okNet = net.then((r) => (r.ok ? r : null)).catch(() => null);
     e.respondWith(
-      Promise.race([net.catch(() => null), timeout]).then(
-        (res) => res || caches.match("index.html", { cacheName: VER }).then((hit) => { if (hit) servedStale = true; return hit || net; })
+      Promise.race([okNet, timeout]).then(
+        (res) => res || caches.match("index.html", { cacheName: VER }).then((hit) => { if (hit) servedStale = true; return hit || net.catch(() => Response.error()); })
       )
     );
     return;

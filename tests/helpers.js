@@ -4,11 +4,16 @@ const path = require("node:path");
 const { chromium } = require("playwright");
 
 const ROOT = path.resolve(__dirname, "..");
-const TYPES = { ".js": "text/javascript", ".html": "text/html", ".png": "image/png", ".webmanifest": "application/manifest+json" };
+const TYPES = {
+  ".js": "text/javascript",
+  ".html": "text/html",
+  ".png": "image/png",
+  ".webmanifest": "application/manifest+json",
+};
 
 // Prosty serwer statyczny; opcja delay opóźnia odpowiedź dla index.html (symulacja wolnej sieci).
 function serve(root = ROOT, port = 0) {
-  const state = { delay: 0, root };
+  const state = { delay: 0, fail: 0, root };
   const server = http.createServer((q, r) => {
     const u = q.url.split("?")[0];
     const f = path.join(state.root, u === "/" ? "index.html" : u);
@@ -16,7 +21,9 @@ function serve(root = ROOT, port = 0) {
     setTimeout(
       () =>
         fs.readFile(f, (e, d) => {
-          if (e) return (r.statusCode = 404), r.end();
+          // state.fail: kod HTTP zwracany zamiast strony głównej (symulacja awarii serwera).
+          if (state.fail && (u === "/" || u === "/index.html")) return ((r.statusCode = state.fail), r.end("awaria"));
+          if (e) return ((r.statusCode = 404), r.end());
           r.setHeader("content-type", TYPES[path.extname(f)] || "application/octet-stream");
           r.setHeader("content-length", d.length);
           r.setHeader("cache-control", "no-store");
@@ -25,7 +32,9 @@ function serve(root = ROOT, port = 0) {
       wait,
     );
   });
-  return new Promise((res) => server.listen(port, () => res({ server, state, url: `http://localhost:${server.address().port}/` })));
+  return new Promise((res) =>
+    server.listen(port, () => res({ server, state, url: `http://localhost:${server.address().port}/` })),
+  );
 }
 
 function reporter() {

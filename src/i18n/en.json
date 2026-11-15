@@ -252,5 +252,7 @@
  "Otwieranie PDF trwa zbyt długo.": "Opening the PDF is taking too long.",
  "Strona PDF ma nieprawidłowe wymiary.": "The PDF page has invalid dimensions.",
  "Strona PDF renderuje się zbyt długo.": "The PDF page is taking too long to render.",
- "Za dużo stron do zaimportowania naraz (limit {}).": "Too many pages to import at once ({0} max)."
+ "Za dużo stron do zaimportowania naraz (limit {}).": "Too many pages to import at once ({0} max).",
+ "Nie udało się zapisać stanu partii (brak miejsca?).": "Could not save the game state (out of space?).",
+ "Nie udało się zaimportować gier: {}.": "Games that failed to import: {0}."
 }

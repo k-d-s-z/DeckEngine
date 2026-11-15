@@ -56,7 +56,7 @@ i uszkodzony PDF.
 | Plik w ZIP po rozpakowaniu | 60 MB (`ZIP_ENTRY_MAX`), `manifest.json` 5 MB |
 | Plik graficzny / obraz | 60 MB, 120 Mpx |
 | Import obrazów/ZIP naraz | pytanie powyżej 300 plików lub 400 MB; twardo 3000 plików / 1,5 GB |
-| Kopia zapasowa | do 200 gier, 3000 kart w grze, 20 000 kart łącznie, 2 GB po rozpakowaniu |
+| Kopia zapasowa | do 200 gier, 3000 kart w grze, 20 000 kart łącznie, 1 GB po rozpakowaniu |
 | PDF | pytanie powyżej 80 MB lub 150 stron; twardo 1000 stron (`IMPORT_MAX_PAGES`) |
 | Czas | otwarcie PDF 60 s, render jednej strony 60 s |
 
