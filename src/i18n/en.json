@@ -239,5 +239,18 @@
  "Pełen ekran i blokada": "Fullscreen and lock",
  "ODRZUCONE": "DISCARDED",
  "Talia: {} {}": "Deck: {0} {1}",
- "Talia: {} {} (unikalnych: {})": "Deck: {0} {1} ({2} unique)"
+ "Talia: {} {} (unikalnych: {})": "Deck: {0} {1} ({2} unique)",
+ "Plik „{}” w archiwum jest zaszyfrowany – to nieobsługiwane.": "The file “{0}” in the archive is encrypted, which is not supported.",
+ "Plik „{}” w archiwum jest za duży (limit {} MB).": "The file “{0}” in the archive is too large ({1} MB limit).",
+ "Plik „{}” w archiwum jest uszkodzony (błędna suma kontrolna).": "The file “{0}” in the archive is damaged (checksum mismatch).",
+ "Archiwum ZIP zawiera zduplikowane nazwy plików.": "The ZIP archive contains duplicate file names.",
+ "Kopia zawiera zbyt wiele gier (limit {}).": "The backup contains too many games ({0} max).",
+ "Gra w kopii ma zbyt wiele kart (limit {}).": "A game in the backup has too many cards ({0} max).",
+ "Kopia zawiera zbyt wiele kart (limit {}).": "The backup contains too many cards ({0} max).",
+ "Kopia jest zbyt duża po rozpakowaniu (limit {} GB).": "The backup is too large once unpacked ({0} GB max).",
+ "Za dużo plików do zaimportowania naraz (limit {} plików, {} GB).": "Too many files to import at once (limit: {0} files, {1} GB).",
+ "Otwieranie PDF trwa zbyt długo.": "Opening the PDF is taking too long.",
+ "Strona PDF ma nieprawidłowe wymiary.": "The PDF page has invalid dimensions.",
+ "Strona PDF renderuje się zbyt długo.": "The PDF page is taking too long to render.",
+ "Za dużo stron do zaimportowania naraz (limit {}).": "Too many pages to import at once ({0} max)."
 }

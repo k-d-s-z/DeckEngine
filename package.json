@@ -5,7 +5,8 @@
   "scripts": {
     "build": "node build.mjs",
     "build:min": "node build.mjs --min",
-    "test": "node build.mjs && node tests/e2e.js",
+    "test": "node build.mjs && node tests/e2e.js && node tests/hardening.js",
+    "test:hardening": "node tests/hardening.js",
     "format": "prettier --write src/app.js"
   },
   "devDependencies": {

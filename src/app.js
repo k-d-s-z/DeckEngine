@@ -373,7 +373,7 @@
               type: "button",
               class: "btn ghost",
               onclick: () => {
-                ((cancelled = !0), (cbtn.disabled = !0), (n.textContent = I18N_T("Przerywam…")));
+                ((cancelled = !0), (cbtn.disabled = !0), (n.textContent = I18N_T("Przerywam…")), impCancelRender());
               },
             },
             I18N_T("Anuluj"),
@@ -633,59 +633,120 @@
       new Blob(e, { type: "application/zip" })
     );
   }
+  // --- Odczyt ZIP z twardymi limitami (ochrona przed zip bombami i uszkodzonymi plikami) ---
+  var ZIP_ENTRY_MAX = 60e6, // maks. rozmiar jednego pliku po rozpakowaniu
+    ZIP_MANIFEST_MAX = 5e6; // maks. rozmiar manifest.json
+  function zipErr(t) {
+    return Object.assign(new Error(t), { zip: !0 });
+  }
+  function crcAdd(c, t) {
+    let e = gn();
+    for (let a = 0; a < t.length; a++) c = e[(c ^ t[a]) & 255] ^ (c >>> 8);
+    return c;
+  }
   async function wt(t) {
     let e = t.size;
-    if (e < 22) throw new Error(I18N_T("To nie jest poprawny plik ZIP."));
+    if (e < 22) throw zipErr(I18N_T("To nie jest poprawny plik ZIP."));
     let n = Math.min(e, 65621),
       a = new DataView(await t.slice(e - n).arrayBuffer()),
       o = -1;
     for (let m = n - 22; m >= 0; m--)
-      if (a.getUint32(m, !0) === 101010256) {
+      if (a.getUint32(m, !0) === 101010256 && m + 22 + a.getUint16(m + 20, !0) <= n) {
         o = m;
         break;
       }
-    if (o < 0) throw new Error(I18N_T("To nie jest poprawny plik ZIP."));
-    let s = a.getUint16(o + 10, !0),
+    if (o < 0) throw zipErr(I18N_T("To nie jest poprawny plik ZIP."));
+    let eocd = e - n + o,
+      s = a.getUint16(o + 10, !0),
       r = a.getUint32(o + 12, !0),
       i = a.getUint32(o + 16, !0);
     if (s === 65535 || i === 4294967295 || r === 4294967295)
-      throw new Error(I18N_T("Archiwa ZIP64 nie są obsługiwane."));
+      throw zipErr(I18N_T("Archiwa ZIP64 nie są obsługiwane."));
+    // jeden dysk, spójna liczba wpisów, katalog w całości przed końcem pliku i rozsądnego rozmiaru
+    if (a.getUint16(o + 4, !0) !== 0 || a.getUint16(o + 6, !0) !== 0 || a.getUint16(o + 8, !0) !== s)
+      throw zipErr(I18N_T("Uszkodzony katalog ZIP."));
+    if (i + r > eocd || r > 33554432 || s * 46 > r) throw zipErr(I18N_T("Uszkodzony katalog ZIP."));
     let c = await t.slice(i, i + r).arrayBuffer(),
       u = new DataView(c),
       l = new Uint8Array(c),
       f = [],
-      p = 0;
+      p = 0,
+      names = new Set(),
+      spans = [];
     for (let m = 0; m < s; m++) {
-      if (p + 46 > u.byteLength || u.getUint32(p, !0) !== 33639248) throw new Error(I18N_T("Uszkodzony katalog ZIP."));
-      let g = u.getUint16(p + 10, !0),
+      if (p + 46 > u.byteLength || u.getUint32(p, !0) !== 33639248) throw zipErr(I18N_T("Uszkodzony katalog ZIP."));
+      let fl = u.getUint16(p + 8, !0),
+        g = u.getUint16(p + 10, !0),
+        crc = u.getUint32(p + 16, !0),
         w = u.getUint32(p + 20, !0),
         A = u.getUint32(p + 24, !0),
         U = u.getUint16(p + 28, !0),
         R = u.getUint16(p + 30, !0),
         L = u.getUint16(p + 32, !0),
-        z = u.getUint32(p + 42, !0),
-        P = hn.decode(l.subarray(p + 46, p + 46 + U));
-      ((p += 46 + U + R + L),
-        f.push({
-          name: P,
-          size: A,
-          isDir: P.endsWith("/"),
-          async blob() {
-            let y = new DataView(await t.slice(z, z + 30).arrayBuffer());
-            if (y.getUint32(0, !0) !== 67324752) throw new Error(I18N_T("Uszkodzony wpis ZIP: ") + P);
-            let v = z + 30 + y.getUint16(26, !0) + y.getUint16(28, !0),
-              B = t.slice(v, v + w);
-            if (g === 0) return B;
-            if (g === 8) {
-              if (typeof DecompressionStream > "u")
-                throw new Error(I18N_T("Ta przeglądarka nie potrafi rozpakować skompresowanego ZIP-a."));
-              let M = B.stream().pipeThrough(new DecompressionStream("deflate-raw"));
-              return await new Response(M).blob();
+        z = u.getUint32(p + 42, !0);
+      if (p + 46 + U + R + L > u.byteLength) throw zipErr(I18N_T("Uszkodzony katalog ZIP."));
+      let P = hn.decode(l.subarray(p + 46, p + 46 + U));
+      p += 46 + U + R + L;
+      if (names.has(P)) throw zipErr(I18N_T("Archiwum ZIP zawiera zduplikowane nazwy plików."));
+      names.add(P);
+      // dane wpisu muszą leżeć przed katalogiem; wpisy nie mogą na siebie zachodzić
+      if (z + 30 + U + w > i) throw zipErr(I18N_T("Uszkodzony katalog ZIP."));
+      spans.push([z, z + 30 + U + w]);
+      let enc = !!(fl & 65);
+      f.push({
+        name: P,
+        size: A,
+        isDir: P.endsWith("/"),
+        async blob(limit = ZIP_ENTRY_MAX) {
+          if (enc) throw zipErr(I18N_T("Plik „{}” w archiwum jest zaszyfrowany – to nieobsługiwane.", P));
+          if (A > limit)
+            throw zipErr(I18N_T("Plik „{}” w archiwum jest za duży (limit {} MB).", P, Math.round(limit / 1e6)));
+          let y = new DataView(await t.slice(z, z + 30).arrayBuffer());
+          if (y.getUint32(0, !0) !== 67324752 || y.getUint16(8, !0) !== g)
+            throw zipErr(I18N_T("Uszkodzony wpis ZIP: ") + P);
+          let v = z + 30 + y.getUint16(26, !0) + y.getUint16(28, !0);
+          if (v + w > i) throw zipErr(I18N_T("Uszkodzony wpis ZIP: ") + P);
+          let B = t.slice(v, v + w),
+            bad = () => zipErr(I18N_T("Plik „{}” w archiwum jest uszkodzony (błędna suma kontrolna).", P));
+          if (g === 0) {
+            if (w !== A) throw zipErr(I18N_T("Uszkodzony wpis ZIP: ") + P);
+            if (((crcAdd(4294967295, new Uint8Array(await B.arrayBuffer())) ^ 4294967295) >>> 0) !== crc) throw bad();
+            return B;
+          }
+          if (g === 8) {
+            if (typeof DecompressionStream > "u")
+              throw new Error(I18N_T("Ta przeglądarka nie potrafi rozpakować skompresowanego ZIP-a."));
+            let rd = B.stream().pipeThrough(new DecompressionStream("deflate-raw")).getReader(),
+              chunks = [],
+              cnt = 0,
+              cc = 4294967295;
+            try {
+              for (;;) {
+                let { value: q, done: dn } = await rd.read();
+                if (dn) break;
+                cnt += q.length;
+                // twardy limit: deklarowany rozmiar i limit wpisu – bomba jest przerywana w trakcie
+                if (cnt > A || cnt > limit) throw zipErr(I18N_T("Uszkodzony wpis ZIP: ") + P);
+                cc = crcAdd(cc, q);
+                chunks.push(q);
+              }
+              if (cnt !== A) throw zipErr(I18N_T("Uszkodzony wpis ZIP: ") + P);
+              if (((cc ^ 4294967295) >>> 0) !== crc) throw bad();
+            } catch (err) {
+              try {
+                await rd.cancel();
+              } catch {}
+              throw err?.zip ? err : zipErr(I18N_T("Uszkodzony wpis ZIP: ") + P);
             }
-            throw new Error(I18N_T("Nieobsługiwana metoda kompresji w ZIP (") + g + ").");
-          },
-        }));
+            return new Blob(chunks);
+          }
+          throw zipErr(I18N_T("Nieobsługiwana metoda kompresji w ZIP (") + g + ").");
+        },
+      });
     }
+    spans.sort((x, y) => x[0] - y[0]);
+    for (let m = 1; m < spans.length; m++)
+      if (spans[m][0] < spans[m - 1][1]) throw zipErr(I18N_T("Uszkodzony katalog ZIP."));
     return f;
   }
   var bn = {
@@ -831,19 +892,31 @@
       throw new Error(I18N_T("W archiwum nie ma pliku manifest.json – to nie jest kopia zapasowa z tej aplikacji."));
     let s;
     try {
-      s = JSON.parse(await (await o.blob()).text());
+      s = JSON.parse(await (await o.blob(ZIP_MANIFEST_MAX)).text());
     } catch {
       throw new Error(I18N_T("Plik manifest.json jest uszkodzony."));
     }
     if (s?.format !== Ie || !Array.isArray(s.games)) throw new Error(I18N_T("Nieznany format kopii zapasowej."));
     if (!(s.version <= Re))
       throw new Error(I18N_T("Kopia pochodzi z nowszej wersji aplikacji (format ") + s.version + ").");
+    // Walidacja z limitami – uszkodzony lub złośliwy manifest nie może wyczerpać pamięci.
+    if (s.games.length > 200) throw new Error(I18N_T("Kopia zawiera zbyt wiele gier (limit {}).", 200));
+    {
+      let totCards = 0;
+      for (let gm of s.games) {
+        if (!gm || typeof gm != "object" || !Array.isArray(gm.cards)) continue;
+        if (gm.cards.length > 3000) throw new Error(I18N_T("Gra w kopii ma zbyt wiele kart (limit {}).", 3000));
+        totCards += gm.cards.length;
+      }
+      if (totCards > 20000) throw new Error(I18N_T("Kopia zawiera zbyt wiele kart (limit {}).", 20000));
+    }
+    let totBytes = 0;
     let r = new Map(a.map((l) => [l.name, l])),
       i = { added: 0, replaced: 0, copied: 0, skipped: 0, cards: 0 },
       c = s.games.reduce((l, f) => l + (f.cards?.length || 0), 0),
       u = 0;
     for (let l of s.games) {
-      if (typeof l?.id != "string" || !Array.isArray(l.cards)) continue;
+      if (typeof l?.id != "string" || l.id.length > 100 || !Array.isArray(l.cards)) continue;
       let f = l.id,
         p = "new",
         m = await tt(l.id);
@@ -863,10 +936,11 @@
         if (!R) continue;
         let L = at(U.file);
         if (!L) continue;
-        let z = new Blob([await R.blob()], { type: L }),
-          { thumb: P, w: y, h: v } = await Oe(z);
+        let z = new Blob([await R.blob()], { type: L });
+        if ((totBytes += z.size) > 2e9) throw new Error(I18N_T("Kopia jest zbyt duża po rozpakowaniu (limit {} GB).", 2));
+        let { thumb: P, w: y, h: v } = await Oe(z);
         g.push({
-          id: p === "copy" ? H() : typeof U.id == "string" ? U.id : H(),
+          id: p === "copy" ? H() : typeof U.id == "string" && U.id.length <= 100 ? U.id : H(),
           gameId: f,
           order: w++,
           name: String(U.name ?? "").slice(0, 120),
@@ -882,10 +956,10 @@
         {
           id: f,
           name: String(l.name || "Gra").slice(0, 120) + (p === "copy" ? I18N_T(" (kopia)") : ""),
-          notes: String(l.notes || ""),
+          notes: String(l.notes || "").slice(0, 20000),
           drawCount: Math.max(1, Math.min(6, Math.round(+l.drawCount) || 1)),
           orientation: ["portrait", "landscape"].includes(l.orientation) ? l.orientation : "auto",
-          createdAt: l.createdAt || A,
+          createdAt: Number.isFinite(+l.createdAt) && +l.createdAt > 0 ? +l.createdAt : A,
           updatedAt: A,
           cover: g.length ? g[0].thumb : null,
           cardCount: g.length,
@@ -1643,21 +1717,71 @@
     }
     return Jt;
   }
+  var curRender = null;
+  // Przerywa renderowanie strony PDF trwające w tej chwili (przycisk „Anuluj”).
+  function impCancelRender() {
+    try {
+      curRender?.cancel();
+    } catch {}
+  }
+  var PDF_PAGE_TIMEOUT = 6e4, // maks. czas renderowania jednej strony
+    PDF_OPEN_TIMEOUT = 6e4, // maks. czas otwierania pliku PDF
+    IMPORT_MAX_PAGES = 1000; // twardy limit stron/obrazów w jednym imporcie
+  async function pdfOpen(data) {
+    let task = (await An()).getDocument({ data }),
+      timer;
+    try {
+      return await Promise.race([
+        task.promise,
+        new Promise((rs, rj) => {
+          timer = setTimeout(() => {
+            try {
+              task.destroy();
+            } catch {}
+            rj(new Error(I18N_T("Otwieranie PDF trwa zbyt długo.")));
+          }, PDF_OPEN_TIMEOUT);
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
   async function Ln(t, e, n) {
     let a = await t.getPage(e),
-      o = a.getViewport({ scale: 1 }),
-      s = n ? n / o.width : Math.min(Bn / 72, en / Math.max(o.width, o.height)),
+      o = a.getViewport({ scale: 1 });
+    if (!(o.width > 0 && o.height > 0)) throw new Error(I18N_T("Strona PDF ma nieprawidłowe wymiary."));
+    let mx = en / Math.max(o.width, o.height),
+      s = n ? Math.min(n / o.width, mx) : Math.min(Bn / 72, mx),
       r = a.getViewport({ scale: s }),
       i = document.createElement("canvas");
-    ((i.width = Math.ceil(r.width)), (i.height = Math.ceil(r.height)));
+    ((i.width = Math.max(1, Math.ceil(r.width))), (i.height = Math.max(1, Math.ceil(r.height))));
     let c = i.getContext("2d");
-    return (
-      (c.fillStyle = "#fff"),
-      c.fillRect(0, 0, i.width, i.height),
-      await a.render({ canvasContext: c, canvas: i, viewport: r }).promise,
-      a.cleanup(),
-      i
-    );
+    ((c.fillStyle = "#fff"), c.fillRect(0, 0, i.width, i.height));
+    let task = a.render({ canvasContext: c, canvas: i, viewport: r }),
+      timer;
+    curRender = task;
+    try {
+      await Promise.race([
+        task.promise,
+        new Promise((rs, rj) => {
+          timer = setTimeout(() => {
+            // strona się zawiesiła: przerwij render i zamknij dokument (kończy jego worker)
+            try {
+              task.cancel();
+            } catch {}
+            try {
+              t.destroy();
+            } catch {}
+            rj(new Error(I18N_T("Strona PDF renderuje się zbyt długo.")));
+          }, PDF_PAGE_TIMEOUT);
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+      curRender === task && (curRender = null);
+    }
+    a.cleanup();
+    return i;
   }
   async function En(t, e) {
     let n = await kt(t);
@@ -1744,6 +1868,8 @@
     try {
       for (let h of t)
         if (n.cancelled) throw impAbort();
+        else if (o.length >= IMPORT_MAX_PAGES)
+          throw new Error(I18N_T("Za dużo stron do zaimportowania naraz (limit {}).", IMPORT_MAX_PAGES));
         else if (/\.pdf$/i.test(h.name) || h.type === "application/pdf") {
           if (
             h.size > 8e7 &&
@@ -1758,8 +1884,10 @@
             )))
           )
             throw impAbort();
-          let x = await (await An()).getDocument({ data: new Uint8Array(await h.arrayBuffer()) }).promise;
+          let x = await pdfOpen(new Uint8Array(await h.arrayBuffer()));
           a.push(x);
+          if (o.length + x.numPages > IMPORT_MAX_PAGES)
+            throw new Error(I18N_T("Za dużo stron do zaimportowania naraz (limit {}).", IMPORT_MAX_PAGES));
           for (let j = 1; j <= x.numPages; j++)
             o.push({ label: x.numPages > 1 ? I18N_T("{} · str. {}", h.name, j) : h.name, render: (E) => Ln(x, j, E) });
           if (o.length > 150 && !askP) {
@@ -3293,6 +3421,11 @@
               });
         M.sort((b, S) => ge(b.sort, S.sort));
         let tb = M.reduce((q, b) => q + (b.size || 0), 0);
+        if (M.length > 3000 || tb > 1.5e9) {
+          v.close();
+          D(I18N_T("Za dużo plików do zaimportowania naraz (limit {} plików, {} GB).", 3000, 1.5), 6e3);
+          return;
+        }
         if (
           (M.length > 300 || tb > 4e8) &&
           !(await bigOk(
@@ -3384,7 +3517,7 @@
       }
     );
   }
-  var APP_VER = "2026.11.14-v6";
+  var APP_VER = "2026.11.14-v7";
   function showUpd() {
     if (document.querySelector(".upd-bar")) return;
     let ub = d(

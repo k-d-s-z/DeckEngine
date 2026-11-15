@@ -22,7 +22,8 @@ a `build.mjs` składa je w jeden samodzielny plik (działa offline, bez zależno
 npm install            # raz: playwright, prettier, esbuild
 npx playwright install chromium   # raz: przeglądarka do testów
 npm run build          # src/ -> index.html
-npm test               # build + testy e2e (ok. 2 min)
+npm test               # build + testy e2e + testy odporności importu (ok. 4 min)
+npm run test:hardening # tylko testy odporności importu (ZIP, kopia zapasowa, PDF)
 npm run format         # prettier na src/app.js
 npm run build:min      # wersja z usuniętymi białymi znakami (opcjonalnie)
 ```
@@ -42,5 +43,21 @@ npm run build:min      # wersja z usuniętymi białymi znakami (opcjonalnie)
 Biblioteka bez `localStorage`, okno „Nowa gra”, import obrazów i PDF (fokus w oknie), limity i anulowanie
 importu, skróty klawiaturowe w grze, blokada orientacji, eksport i import kopii zapasowej, wersja EN,
 Service Worker (cache tylko z prefiksem `deckengine-`, tryb offline, pasek „Dostępna nowa wersja”).
+
+`tests/hardening.js` sprawdza import złośliwych i uszkodzonych plików (pliki generowane w locie): zip bomby
+(z prawdziwym i zaniżonym rozmiarem), błędne CRC32, wpisy zaszyfrowane, ucięte/zduplikowane/nakładające się wpisy,
+złośliwy manifest kopii (limity gier, kart, rozmiaru), PDF z 1001 stronami, anulowanie importu 160 stron
+i uszkodzony PDF.
+
+## Limity importu (w `src/app.js`)
+
+| Limit | Wartość |
+| --- | --- |
+| Plik w ZIP po rozpakowaniu | 60 MB (`ZIP_ENTRY_MAX`), `manifest.json` 5 MB |
+| Plik graficzny / obraz | 60 MB, 120 Mpx |
+| Import obrazów/ZIP naraz | pytanie powyżej 300 plików lub 400 MB; twardo 3000 plików / 1,5 GB |
+| Kopia zapasowa | do 200 gier, 3000 kart w grze, 20 000 kart łącznie, 2 GB po rozpakowaniu |
+| PDF | pytanie powyżej 80 MB lub 150 stron; twardo 1000 stron (`IMPORT_MAX_PAGES`) |
+| Czas | otwarcie PDF 60 s, render jednej strony 60 s |
 
 Testy nie zastępują próby na prawdziwym telefonie (instalacja PWA, blokada orientacji, Wake Lock).
