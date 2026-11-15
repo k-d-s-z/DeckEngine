@@ -218,6 +218,88 @@ const bodyText = (page) => page.evaluate(() => document.body.innerText);
     await ctx.close();
   }
 
+  // ---------------------------------------------------------------- okładka i kosz
+  t.section("Okładka gry i kosz na liście gier");
+  {
+    const { ctx, page, errors } = await newPage(browser);
+    await page.goto(base);
+    await createGameWithImages(page, "Okl", cards(3));
+    const gameRec = () =>
+      page.evaluate(
+        () =>
+          new Promise((res) => {
+            const o = indexedDB.open("automa-decks");
+            o.onsuccess = () => {
+              const q = o.result.transaction("games").objectStore("games").getAll();
+              q.onsuccess = () =>
+                res({
+                  hasCustom: !!q.result[0].coverCustom,
+                  cardId: q.result[0].coverCardId || null,
+                  hasCover: !!q.result[0].cover,
+                });
+            };
+          }),
+      );
+    t.ok(
+      "domyślnie wskazana jest pierwsza karta",
+      (await page.locator(".tile").nth(0).locator(".tile-cover.on").count()) === 1,
+    );
+    await page.locator(".tile-cover").nth(1).click();
+    await page.waitForTimeout(500);
+    t.ok(
+      "gwiazdka zaznacza dokładnie jedną kartę jako okładkę",
+      (await page.locator(".tile-cover.on").count()) === 1 &&
+        (await page.locator(".tile").nth(1).locator(".tile-cover.on").count()) === 1,
+    );
+    await page
+      .locator(".cover-setting input[type=file]")
+      .setInputFiles({ name: "o.png", mimeType: "image/png", buffer: png(50, 50, [250, 20, 20]) });
+    await page.waitForSelector('.cover-actions .btn:has-text("Usuń własny obraz")', {
+      state: "visible",
+      timeout: 10000,
+    });
+    t.ok("własny obraz zdejmuje zaznaczenie z kart", (await page.locator(".tile-cover.on").count()) === 0);
+    t.ok("własny obraz nie trafia do talii", (await page.locator(".tile").count()) === 3);
+    await page.waitForTimeout(500);
+    let rec = await gameRec();
+    t.ok("własny obraz zapisany w grze", rec.hasCustom && rec.hasCover, JSON.stringify(rec));
+    await page.click('.cover-actions .btn:has-text("Usuń własny obraz")');
+    await page.waitForTimeout(500);
+    t.ok(
+      "usunięcie własnego obrazu wraca do wskazanej karty",
+      (await page.locator(".tile").nth(1).locator(".tile-cover.on").count()) === 1,
+    );
+    // usunięcie wskazanej karty: okładką znów jest pierwsza karta
+    await page.locator(".tile-del").nth(1).click();
+    await page.click('dialog button:has-text("Usuń")');
+    await page.waitForTimeout(600);
+    t.ok(
+      "po usunięciu karty-okładki wybierana jest pierwsza karta",
+      (await page.locator(".tile").nth(0).locator(".tile-cover.on").count()) === 1,
+    );
+    await page.goto(base + "#/");
+    await page.waitForSelector(".game:not(.new)");
+    await page.locator(".game-del").click();
+    await page.waitForSelector("dialog[open]");
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(400);
+    t.ok(
+      "Enter w oknie usuwania nie usuwa gry (domyślnie „Anuluj”)",
+      (await page.locator(".game:not(.new)").count()) === 1,
+    );
+    await page.locator(".game-del").click();
+    await page.click('dialog button:has-text("Anuluj")');
+    t.ok("Anuluj zostawia grę", (await page.locator(".game:not(.new)").count()) === 1);
+    await page.locator(".game-del").click();
+    await page.click('dialog button:has-text("Usuń grę")');
+    await page.waitForFunction(() => document.querySelectorAll(".game:not(.new)").length === 0, null, {
+      timeout: 5000,
+    });
+    t.ok("potwierdzenie usuwa grę z listy", true);
+    t.ok("brak błędów JS", errors.length === 0, errors.join("; "));
+    await ctx.close();
+  }
+
   // ---------------------------------------------------------------- kopia zapasowa + EN
   t.section("Kopia zapasowa (eksport → import) i wersja angielska");
   {
@@ -226,7 +308,19 @@ const bodyText = (page) => page.evaluate(() => document.body.innerText);
     await createGameWithImages(a.page, "Kopia", cards(4));
     await a.page.locator(".seg-btn").nth(1).scrollIntoViewIfNeeded();
     await a.page.click('.seg-btn:has-text("Pionowo")');
-    await a.page.waitForTimeout(300);
+    await a.page.locator(".tile-cover").nth(2).click();
+    await a.page.waitForTimeout(500);
+    await a.page.goto(base + "#/");
+    await a.page.waitForSelector(".game:not(.new)");
+    await createGameWithImages(a.page, "Wlasna", cards(2));
+    await a.page
+      .locator(".cover-setting input[type=file]")
+      .setInputFiles({ name: "o.png", mimeType: "image/png", buffer: png(50, 50, [250, 20, 20]) });
+    await a.page.waitForSelector('.cover-actions .btn:has-text("Usuń własny obraz")', {
+      state: "visible",
+      timeout: 10000,
+    });
+    await a.page.waitForTimeout(500);
     await a.page.goto(base + "#/");
     await a.page.waitForSelector(".game:not(.new)");
     const [dl] = await Promise.all([
@@ -246,14 +340,29 @@ const bodyText = (page) => page.evaluate(() => document.body.innerText);
     ]);
     await fc.setFiles(zip);
     await b.page.waitForSelector(".game:not(.new)", { timeout: 20000 });
-    t.ok("import kopii odtwarza grę w czystej przeglądarce", (await b.page.locator(".game:not(.new)").count()) === 1);
-    await b.page.click(".game-edit");
+    t.ok(
+      "import kopii odtwarza obie gry w czystej przeglądarce",
+      (await b.page.locator(".game:not(.new)").count()) === 2,
+    );
+    await b.page.locator(".game-edit").nth(0).click();
     await b.page.waitForSelector(".seg-btn");
     t.ok(
       "ustawienie orientacji przeżyło eksport/import",
       (await b.page.locator(".seg-btn.on").innerText()).toLowerCase().includes("pionowo"),
     );
     t.ok("4 karty po imporcie", (await b.page.locator(".tile").count()) === 4);
+    t.ok(
+      "wskazana karta-okładka przeżyła eksport/import",
+      (await b.page.locator(".tile").nth(2).locator(".tile-cover.on").count()) === 1,
+    );
+    await b.page.goto(base + "#/");
+    await b.page.waitForSelector(".game:not(.new)");
+    await b.page.locator(".game-edit").nth(1).click();
+    await b.page.waitForSelector(".cover-setting");
+    t.ok(
+      "własny obraz okładki przeżył eksport/import",
+      await b.page.locator('.cover-actions .btn:has-text("Usuń własny obraz")').isVisible(),
+    );
     // wersja angielska
     await b.page.evaluate(() => localStorage.setItem("lang", "en"));
     await b.page.goto(base + "#/");

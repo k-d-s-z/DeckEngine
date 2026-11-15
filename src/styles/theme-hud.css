@@ -118,10 +118,6 @@ dialog.dlg { box-shadow: 0 0 0 1px var(--accent-dim), 0 0 36px rgba(46, 230, 211
 .gcard { border-radius: 4px; box-shadow: 0 0 0 1px var(--accent), 0 0 0 5px rgba(46, 230, 211, .12), 0 0 26px rgba(46, 230, 211, .28); }
 /* przycisk dobierania: pierścień z podziałką i mocna poświata */
 .draw-btn { box-shadow: 0 0 0 3px var(--bg), 0 0 0 4px var(--accent), 0 0 30px rgba(46, 230, 211, .6); }
-.draw-btn::before { content: ""; position: absolute; inset: -12px; border-radius: 50%; pointer-events: none; opacity: .85;
-  background: repeating-conic-gradient(var(--accent) 0 4deg, transparent 4deg 12deg);
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px)); mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px)); }
-.draw-btn.empty::before { opacity: .3; }
 .draw-btn.empty { box-shadow: 0 0 0 3px var(--bg), 0 0 0 4px var(--accent); }
 .bar { position: relative; border-top: 0; }
 .bar::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; pointer-events: none; background: linear-gradient(90deg, transparent, var(--accent) 18%, var(--accent) 82%, transparent); box-shadow: 0 0 12px var(--accent-dim); }
@@ -159,3 +155,26 @@ body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-even
 }
 .hud-read { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 0 0 1px rgba(46, 230, 211, .2), 0 10px 28px rgba(0, 0, 0, .45); }
 dialog.dlg { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 0 0 1px var(--accent-dim), 0 0 36px rgba(46, 230, 211, .18), 0 20px 50px rgba(0, 0, 0, .55); }
+
+/* ---------- biblioteka: lista gier zamiast siatki ---------- */
+.library .game-grid { flex-direction: column; flex-wrap: nowrap; gap: 10px; max-width: 720px; margin: 0 auto; }
+.library .game, .library .game.new { flex: none; width: 100%; }
+.library .game:not(.new) { flex-direction: row; align-items: center; min-height: 92px; }
+.library .game-main { flex-direction: row; align-items: center; gap: 14px; padding: 8px 8px 8px 8px; min-width: 0; }
+.library .game-main img, .library .game-main .noimg { flex: none; width: 76px; height: 76px; aspect-ratio: auto; object-fit: contain; border-radius: 4px; background: #0a0f16; border: 1px solid var(--glass-line); }
+.library .game-text { min-width: 0; flex: 1; }
+.library .game-name { padding: 0; font-size: .95rem; }
+.library .game-sub { padding: 4px 0 0; }
+.library .game-edit { position: static; flex: none; margin: 0 12px 0 0; }
+.library .game:not(.new)::after { display: none; }
+
+/* ---------- lista gier: akcje; okładka w edytorze ---------- */
+.library .game-actions { display: flex; gap: 8px; flex: none; margin: 0 12px 0 0; }
+.library .game-actions .game-edit { margin: 0; }
+.tile-cover { position: absolute; top: 12px; left: calc(50% - 22px); background: rgba(10, 15, 22, .85); }
+.tile-cover.on { color: var(--accent); border-color: var(--accent); box-shadow: 0 0 10px rgba(46, 230, 211, .45); }
+.tile-cover.on svg path { fill: currentColor; }
+.cover-setting { flex-wrap: wrap; gap: 12px; align-items: center; }
+.cover-prev { flex: none; width: 64px; height: 64px; object-fit: contain; background: #0a0f16; border: 1px solid var(--glass-line); border-radius: 4px; }
+.cover-prev[hidden], .cover-actions [hidden] { display: none; }
+.cover-actions { display: flex; gap: 8px; flex-wrap: wrap; width: 100%; }

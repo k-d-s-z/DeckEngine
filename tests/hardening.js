@@ -321,6 +321,76 @@ const toastTexts = async (page, ms = 2500) => {
     await c.ctx.close();
   }
 
+  t.section("Kopia zapasowa: okładka (wskazana karta, własny obraz)");
+  {
+    const dump = (page) =>
+      page.evaluate(
+        () =>
+          new Promise((res) => {
+            const o = indexedDB.open("automa-decks");
+            o.onsuccess = () => {
+              const tx = o.result.transaction(["games", "cards"]);
+              const g = tx.objectStore("games").getAll();
+              const k = tx.objectStore("cards").getAll();
+              tx.oncomplete = () =>
+                res({
+                  games: Object.fromEntries(
+                    g.result.map((x) => [
+                      x.id,
+                      { card: x.coverCardId || null, custom: !!x.coverCustom, cover: !!x.cover },
+                    ]),
+                  ),
+                  cards: k.result.map((c) => ({ id: c.id, gameId: c.gameId, order: c.order })),
+                });
+            };
+          }),
+      );
+    const c = await newPage(browser);
+    await c.page.goto(base);
+    const mk = (id, extra) => ({
+      id,
+      name: id,
+      cards: [0, 1, 2].map((i) => ({ id: id + i, file: "k.png", name: "K" + i, copies: 1 })),
+      ...extra,
+    });
+    await importBackup(
+      c.page,
+      manifestZip(
+        manifest([
+          mk("cok", { coverCard: 1 }),
+          mk("cbad", { coverCard: 99 }),
+          mk("cneg", { coverCard: -1 }),
+          mk("cstr", { coverCard: "1" }),
+          mk("cfile", { coverFile: "k.png" }),
+          mk("cnofile", { coverFile: "nie-ma.png" }),
+          mk("cjunk", { coverFile: "junk.png" }),
+        ]),
+        [
+          { name: "k.png", data: P },
+          { name: "junk.png", data: Buffer.from("nie obraz") },
+        ],
+      ),
+    );
+    await c.page.waitForTimeout(1000);
+    const D = await dump(c.page);
+    const cardIdAt = (game, idx) => D.cards.filter((x) => x.gameId === game).sort((a, b) => a.order - b.order)[idx]?.id;
+    t.ok(
+      "okładka: wskazana karta mapowana po indeksie na nowe ID",
+      D.games.cok?.card === cardIdAt("cok", 1) && !!D.games.cok.card,
+      JSON.stringify(D.games.cok),
+    );
+    t.ok(
+      "okładka: indeks spoza zakresu / ujemny / tekst ignorowany",
+      !D.games.cbad?.card && !D.games.cneg?.card && !D.games.cstr?.card,
+    );
+    t.ok("okładka: plik graficzny z kopii ustawia własny obraz", D.games.cfile?.custom && D.games.cfile.cover);
+    t.ok(
+      "okładka: brakujący lub uszkodzony plik nie psuje importu",
+      Object.keys(D.games).length === 7 && !D.games.cnofile.custom && !D.games.cjunk.custom && D.games.cjunk.cover,
+    );
+    await c.ctx.close();
+  }
+
   // ------------------------------------------------------------------ Service Worker
   t.section("Service Worker: awaria serwera i cache innych aplikacji");
   {

@@ -100,7 +100,10 @@
     await pt(t, (n) => {
       ((n.cardCount = e.length),
         (n.deckSize = e.reduce((a, o) => a + (o.copies | 0), 0)),
-        (n.cover = e.length ? e[0].thumb || e[0].blob : null));
+        // Okładka: własny obraz > wskazana karta > pierwsza karta.
+        n.coverCardId && !e.some((c) => c.id === n.coverCardId) && delete n.coverCardId);
+      let pick = (n.coverCardId && e.find((c) => c.id === n.coverCardId)) || e[0];
+      n.cover = n.coverCustom || (pick ? pick.thumb || pick.blob : null);
     });
   }
   async function ue(t, e) {
@@ -193,6 +196,7 @@
       trash: ["M3 6h18", "M8 6V4h8v2", "M19 6l-1 14H6L5 6"],
       download: ["M12 3v12", "M7 10l5 5 5-5", "M5 21h14"],
       upload: ["M12 15V3", "M7 8l5-5 5 5", "M5 21h14"],
+      star: ["M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"],
       image: ["M3 3h18v18H3z", "M8.5 10a1.5 1.5 0 100-3 1.5 1.5 0 000 3z", "M21 15l-5-5L5 21"],
       grid: ["M3 3h18v18H3z", "M3 9h18", "M3 15h18", "M9 3v18", "M15 3v18"],
       x: ["M18 6L6 18", "M6 6l12 12"],
@@ -861,6 +865,11 @@
   var Ie = "automa-deck-backup",
     Re = 1,
     kn = { "image/webp": "webp", "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif", "image/avif": "avif" };
+  var coverIdx = (g, cards) => (g.coverCardId ? cards.findIndex((c) => c.id === g.coverCardId) : -1),
+    coverPath = (g, files) => {
+      let path = `covers/${g.id}.${kn[g.coverCustom.type] || "img"}`;
+      return (files.push({ name: path, data: g.coverCustom }), path);
+    };
   async function Wt(t, e) {
     let n = [],
       a = [],
@@ -891,6 +900,8 @@
           createdAt: c.createdAt,
           updatedAt: c.updatedAt,
           cards: l,
+          ...(coverIdx(c, u) >= 0 ? { coverCard: coverIdx(c, u) } : {}),
+          ...(c.coverCustom ? { coverFile: coverPath(c, n) } : {}),
         }));
     }
     let i = { format: Ie, version: Re, app: "karty-automy", exportedAt: new Date().toISOString(), games: a };
@@ -943,8 +954,11 @@
           ((p = U === "replace" ? "replace" : "copy"), p === "copy" && (f = H()));
         }
         let g = [],
-          w = 0;
+          w = 0,
+          ci = -1,
+          idByIdx = new Map();
         for (let U of l.cards) {
+          ci++;
           n?.(u++ / Math.max(1, c));
           let R = typeof U?.file == "string" ? r.get(U.file) : null;
           if (!R) continue;
@@ -967,6 +981,18 @@
             w: y,
             h: v,
           });
+          idByIdx.set(ci, g[g.length - 1].id);
+        }
+        // Okładka z kopii: wskazana karta (po indeksie, bo ID kart są nadawane od nowa) i/lub własny obraz.
+        let coverCardNew = Number.isInteger(l.coverCard) ? idByIdx.get(l.coverCard) : void 0,
+          coverCustomNew = null;
+        if (typeof l.coverFile == "string" && r.get(l.coverFile) && at(l.coverFile)) {
+          try {
+            let cb = new Blob([await r.get(l.coverFile).blob()], { type: at(l.coverFile) });
+            if ((totBytes += cb.size) <= 1e9) coverCustomNew = (await Oe(cb)).thumb;
+          } catch (err) {
+            console.error(err);
+          }
         }
         let A = Date.now();
         (await ue(
@@ -979,7 +1005,9 @@
             orientation: ["portrait", "landscape"].includes(l.orientation) ? l.orientation : "auto",
             createdAt: Number.isFinite(+l.createdAt) && +l.createdAt > 0 ? +l.createdAt : A,
             updatedAt: A,
-            cover: g.length ? g[0].thumb : null,
+            cover: coverCustomNew || (g.find((x) => x.id === coverCardNew) || g[0])?.thumb || null,
+            ...(coverCardNew ? { coverCardId: coverCardNew } : {}),
+            ...(coverCustomNew ? { coverCustom: coverCustomNew } : {}),
             cardCount: g.length,
             deckSize: g.reduce((U, R) => U + R.copies, 0),
           },
@@ -2523,10 +2551,19 @@
               "button",
               { class: "game-main", type: "button", onclick: () => K("#/play/" + p.id) },
               p.cover ? d("img", { src: n(p.cover), alt: "" }) : d("div", { class: "noimg", html: W("image") }),
-              d("div", { class: "game-name" }, p.name),
-              d("div", { class: "game-sub" }, p.cardCount ? deckText(p.cardCount, p.deckSize) : I18N_T("brak kart")),
+              d(
+                "div",
+                { class: "game-text" },
+                d("div", { class: "game-name" }, p.name),
+                d("div", { class: "game-sub" }, p.cardCount ? deckText(p.cardCount, p.deckSize) : I18N_T("brak kart")),
+              ),
             ),
-            G("edit", I18N_T("Edytuj grę ") + p.name, () => K("#/edit/" + p.id), "small game-edit"),
+            d(
+              "div",
+              { class: "game-actions" },
+              G("edit", I18N_T("Edytuj grę ") + p.name, () => K("#/edit/" + p.id), "small game-edit"),
+              G("trash", I18N_T("Usuń grę ") + p.name, () => delGameFromList(p), "small danger game-del"),
+            ),
           ),
         ),
         d(
@@ -2604,6 +2641,29 @@
         m.push(I18N_T("wersja") + " " + APP_VER),
         (r.textContent = m.join(" \xB7 ")));
     });
+    async function delGameFromList(p) {
+      // Przycisk „Anuluj” jest pierwszy, żeby przypadkowe Enter/Spacja nie usuwały gry.
+      let ok = await nt({
+        title: I18N_T("Usunąć grę?"),
+        text: I18N_T(
+          "Gra „{}” razem ze wszystkimi kartami zostanie trwale usunięta z tego urządzenia. Jeśli nie masz kopii zapasowej, nie da się tego cofnąć.",
+          p.name,
+        ),
+        buttons: [
+          { label: I18N_T("Anuluj"), value: null, kind: "ghost" },
+          { label: I18N_T("Usuń grę"), value: !0, kind: "danger" },
+        ],
+      });
+      if (ok !== !0) return;
+      try {
+        await ie(p.id);
+        D(I18N_T("Gra usunięta."), 3e3);
+      } catch (err) {
+        console.error(err);
+        D(I18N_T("Nie udało się usunąć gry."), 4e3);
+      }
+      Bt();
+    }
     async function u() {
       let p = await be({ title: I18N_T("Nowa gra"), label: I18N_T("Nazwa gry"), ok: I18N_T("Utwórz") });
       if (!p) return;
@@ -3136,7 +3196,92 @@
         y.notes = i.value;
       }),
     );
-    let dc = Math.max(1, Math.min(6, e.drawCount | 0 || 1)),
+    let coverCardNow = e.coverCardId || null,
+      coverCustomBlob = e.coverCustom || null,
+      coverMarks = new Map(),
+      coverUrl = null,
+      coverPrev = d("img", { class: "cover-prev", alt: "" }),
+      coverSub = d("span", { class: "muted" }),
+      coverEffectiveCard = () => (coverCustomBlob ? null : n.find((c) => c.id === coverCardNow) || n[0] || null),
+      coverClear = d(
+        "button",
+        {
+          type: "button",
+          class: "btn ghost",
+          onclick: async () => {
+            await pt(t, (g) => {
+              delete g.coverCustom;
+            });
+            coverCustomBlob = null;
+            refreshCover();
+            s();
+          },
+        },
+        d("span", { class: "btn-label" }, I18N_T("Usuń własny obraz")),
+      ),
+      coverPick = Nt({
+        label: I18N_T("Wybierz obraz"),
+        accept: "image/*",
+        multiple: !1,
+        kind: "",
+        onFiles: async (files) => {
+          let f = files[0];
+          if (!f) return;
+          if (f.size > 60 * 1024 * 1024) return void D(I18N_T("Plik graficzny jest zbyt duży (limit 60 MB)."), 4e3);
+          try {
+            let { thumb } = await Oe(new Blob([f], { type: f.type }));
+            await pt(t, (g) => {
+              g.coverCustom = thumb;
+            });
+            coverCustomBlob = thumb;
+            refreshCover();
+            s();
+          } catch (err) {
+            console.error(err);
+            D(I18N_T("Nie udało się wczytać obrazu okładki."), 4e3);
+          }
+        },
+      }),
+      refreshCover = () => {
+        let pick = coverEffectiveCard(),
+          blob = coverCustomBlob || (pick ? pick.thumb || pick.blob : null);
+        for (let [id, b] of coverMarks) {
+          if (!b.isConnected) {
+            coverMarks.delete(id);
+            continue;
+          }
+          b.classList.toggle("on", pick?.id === id);
+          b.setAttribute("aria-pressed", String(pick?.id === id));
+        }
+        coverUrl && URL.revokeObjectURL(coverUrl);
+        coverUrl = blob ? URL.createObjectURL(blob) : null;
+        coverPrev.hidden = !blob;
+        blob && (coverPrev.src = coverUrl);
+        coverClear.hidden = !coverCustomBlob;
+        coverSub.textContent = coverCustomBlob
+          ? I18N_T("Własny obraz")
+          : pick
+            ? I18N_T("Karta z talii (gwiazdka przy karcie)")
+            : I18N_T("Brak okładki");
+      },
+      coverRow = d(
+        "div",
+        { class: "setting cover-setting" },
+        coverPrev,
+        d(
+          "div",
+          { class: "setting-text" },
+          d("strong", {}, I18N_T("Okładka gry")),
+          coverSub,
+          d(
+            "span",
+            { class: "muted" },
+            I18N_T("Wskaż kartę gwiazdką albo wybierz własny obraz. Własny obraz nie trafia do talii."),
+          ),
+        ),
+        d("div", { class: "cover-actions" }, coverPick, coverClear),
+      ),
+      dc = Math.max(1, Math.min(6, e.drawCount | 0 || 1)),
       dv = d("span", { class: "copies" }, String(dc)),
       setDc = async (x) => {
         let nv = Math.max(1, Math.min(6, dc + x));
@@ -3255,6 +3400,7 @@
           d("h2", { class: "sec-h" }, I18N_T("Ustawienia gry")),
           drawRow,
           trimRow,
+          coverRow,
           orRow,
           d("h2", { class: "sec-h sec-gap" }, I18N_T("Karty")),
           d("div", { class: "row summary-row" }, c, d("span", { class: "grow" }), bulk),
@@ -3278,6 +3424,7 @@
     trimPlusBtn.disabled = trimNow >= EDGE_TRIM_MAX;
     dplus.disabled = dc >= 6;
     function m() {
+      refreshCover();
       bulk.hidden = !n.length;
       let y = n.reduce((v, B) => v + B.copies, 0);
       ((c.textContent = n.length
@@ -3303,6 +3450,21 @@
           "small tile-rot",
         ),
         DB = G("trash", I18N_T("Usuń kartę"), () => A(y), "small danger tile-del"),
+        CB = G(
+          "star",
+          I18N_T("Ustaw jako okładkę gry"),
+          async () => {
+            await pt(t, (g) => {
+              g.coverCardId = y.id;
+              delete g.coverCustom;
+            });
+            coverCardNow = y.id;
+            coverCustomBlob = null;
+            refreshCover();
+            s();
+          },
+          "small tile-cover",
+        ),
         OFFB = d("span", { class: "tile-off-badge" }, I18N_T("Wyłączona"));
       let v = d("span", { class: "copies" }, "\xD7" + y.copies),
         B = async (b) => {
@@ -3337,6 +3499,7 @@
         OFFB,
         RB,
         DB,
+        CB,
         M,
         d(
           "div",
@@ -3346,6 +3509,9 @@
           G("plus", I18N_T("Więcej kopii"), () => B(1), "small"),
         ),
       );
+      (coverMarks.set(y.id, CB),
+        CB.classList.toggle("on", coverEffectiveCard()?.id === y.id),
+        CB.setAttribute("aria-pressed", String(coverEffectiveCard()?.id === y.id)));
       return $;
     }
     async function rotOne(y, dir) {
@@ -3588,6 +3754,7 @@
       m(),
       async () => {
         for (let y of a.values()) URL.revokeObjectURL(y);
+        coverUrl && URL.revokeObjectURL(coverUrl);
         try {
           await ft(t);
         } catch (y) {
@@ -3596,7 +3763,7 @@
       }
     );
   }
-  var APP_VER = "2026.11.15-v12";
+  var APP_VER = "2026.11.15-v14";
   function showUpd() {
     if (document.querySelector(".upd-bar")) return;
     let ub = d(

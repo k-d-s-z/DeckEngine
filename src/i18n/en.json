@@ -258,5 +258,17 @@
  "Przytnij brzeg karty": "Trim card edge",
  "Ukrywa biały margines po cięciu (tylko na ekranie gry)": "Hides the white margin left by cutting (game screen only)",
  "Mniejsze przycięcie brzegu karty": "Less edge trim",
- "Większe przycięcie brzegu karty": "More edge trim"
+ "Większe przycięcie brzegu karty": "More edge trim",
+ "Usuń grę ": "Delete game ",
+ "Gra usunięta.": "Game deleted.",
+ "Nie udało się usunąć gry.": "Could not delete the game.",
+ "Ustaw jako okładkę gry": "Set as game cover",
+ "Okładka gry": "Game cover",
+ "Wybierz obraz": "Choose image",
+ "Usuń własny obraz": "Remove custom image",
+ "Własny obraz": "Custom image",
+ "Karta z talii (gwiazdka przy karcie)": "A card from the deck (star on the card)",
+ "Brak okładki": "No cover",
+ "Wskaż kartę gwiazdką albo wybierz własny obraz. Własny obraz nie trafia do talii.": "Pick a card with the star, or choose your own image. A custom image is not added to the deck.",
+ "Nie udało się wczytać obrazu okładki.": "Could not load the cover image."
 }
