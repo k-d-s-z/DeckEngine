@@ -284,6 +284,43 @@ const toastTexts = async (page, ms = 2500) => {
     await c.ctx.close();
   }
 
+  t.section("Kopia zapasowa: przycięcie brzegu karty");
+  {
+    const gameTrim = (page) =>
+      page.evaluate(
+        () =>
+          new Promise((res) => {
+            const o = indexedDB.open("automa-decks");
+            o.onsuccess = () => {
+              const q = o.result.transaction("games").objectStore("games").getAll();
+              q.onsuccess = () => res(Object.fromEntries(q.result.map((g) => [g.id, g.edgeTrim])));
+            };
+          }),
+      );
+    const c = await newPage(browser);
+    await c.page.goto(base);
+    const card = { id: "c", file: "k.png", name: "K", copies: 1 };
+    await importBackup(
+      c.page,
+      manifestZip(
+        manifest([
+          { id: "tbig", name: "T1", edgeTrim: 99, cards: [card] },
+          { id: "tnone", name: "T2", cards: [card] },
+          { id: "tbad", name: "T3", edgeTrim: "abc", cards: [card] },
+          { id: "tzero", name: "T4", edgeTrim: 0, cards: [card] },
+        ]),
+        [{ name: "k.png", data: P }],
+      ),
+    );
+    await c.page.waitForTimeout(800);
+    const tr = await gameTrim(c.page);
+    t.ok("przycięcie: wartość spoza zakresu ograniczona do 4", tr.tbig === 4, JSON.stringify(tr));
+    t.ok("przycięcie: brak pola daje domyślne 1", tr.tnone === 1, JSON.stringify(tr));
+    t.ok("przycięcie: tekst zamiast liczby daje 0 (bezpieczna wartość)", tr.tbad === 0, JSON.stringify(tr));
+    t.ok("przycięcie: jawne 0 zostaje", tr.tzero === 0, JSON.stringify(tr));
+    await c.ctx.close();
+  }
+
   // ------------------------------------------------------------------ Service Worker
   t.section("Service Worker: awaria serwera i cache innych aplikacji");
   {

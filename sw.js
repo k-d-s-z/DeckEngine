@@ -1,7 +1,7 @@
 // DeckEngine service worker: działanie offline.
 // Przy zmianie plików aplikacji podnieś numer wersji poniżej (i APP_VER w index.html).
 const PREFIX = "deckengine-";
-const VER = PREFIX + "shell-v8";
+const VER = PREFIX + "shell-v12";
 // Pliki konieczne do działania offline – jeśli któregoś brakuje, instalacja się nie uda.
 const CORE = ["./", "index.html", "manifest.webmanifest"];
 // Ikony: zapisujemy, jeśli są; ich brak nie może blokować działania offline.

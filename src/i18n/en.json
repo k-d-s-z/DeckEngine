@@ -254,5 +254,9 @@
  "Strona PDF renderuje się zbyt długo.": "The PDF page is taking too long to render.",
  "Za dużo stron do zaimportowania naraz (limit {}).": "Too many pages to import at once ({0} max).",
  "Nie udało się zapisać stanu partii (brak miejsca?).": "Could not save the game state (out of space?).",
- "Nie udało się zaimportować gier: {}.": "Games that failed to import: {0}."
+ "Nie udało się zaimportować gier: {}.": "Games that failed to import: {0}.",
+ "Przytnij brzeg karty": "Trim card edge",
+ "Ukrywa biały margines po cięciu (tylko na ekranie gry)": "Hides the white margin left by cutting (game screen only)",
+ "Mniejsze przycięcie brzegu karty": "Less edge trim",
+ "Większe przycięcie brzegu karty": "More edge trim"
 }

@@ -486,6 +486,9 @@
     for (let n of t) for (let a = 0; a < (n.copies | 0); a++) e.push(n.id + "~" + a);
     return e;
   }
+  // Przycięcie brzegu karty na ekranie gry (w % z każdej strony): ukrywa biały margines z niedokładnego cięcia.
+  var EDGE_TRIM_MAX = 4,
+    edgeTrimOf = (g) => (g.edgeTrim == null ? 1 : Math.max(0, Math.min(EDGE_TRIM_MAX, Math.round(+g.edgeTrim) || 0)));
   var Ft = (t) => t.slice(0, t.lastIndexOf("~"));
   function ze(t, e, n) {
     return { gameId: t, draw: ht(ve(e), n), discard: [], shown: [], dg: [], undo: [], updatedAt: Date.now() };
@@ -883,6 +886,7 @@
           name: c.name,
           notes: c.notes || "",
           drawCount: c.drawCount || 1,
+          edgeTrim: edgeTrimOf(c),
           orientation: c.orientation || "auto",
           createdAt: c.createdAt,
           updatedAt: c.updatedAt,
@@ -971,6 +975,7 @@
             name: String(l.name || "Gra").slice(0, 120) + (p === "copy" ? I18N_T(" (kopia)") : ""),
             notes: String(l.notes || "").slice(0, 20000),
             drawCount: Math.max(1, Math.min(6, Math.round(+l.drawCount) || 1)),
+            edgeTrim: edgeTrimOf(l),
             orientation: ["portrait", "landscape"].includes(l.orientation) ? l.orientation : "auto",
             createdAt: Number.isFinite(+l.createdAt) && +l.createdAt > 0 ? +l.createdAt : A,
             updatedAt: A,
@@ -2687,6 +2692,7 @@
       );
     let a = new Map(n.map((b) => [b.id, b])),
       DN = Math.max(1, Math.min(6, e.drawCount | 0 || 1)),
+      trimScale = (1 / (1 - (2 * edgeTrimOf(e)) / 100)).toFixed(4),
       o = await de(t);
     o ? Me(o, n) : (o = ze(t, n));
     let saveWarned = !1,
@@ -2776,7 +2782,11 @@
       if (ids.length) {
         let els = ids.map((b) => {
           let S = a.get(Ft(b)),
-            im = d("img", { class: "gcard", src: i(S.id), alt: S.name || I18N_T("Karta"), draggable: "false" });
+            im = d(
+              "div",
+              { class: "gcard", style: "--ts:" + trimScale },
+              d("img", { class: "gcard-img", src: i(S.id), alt: S.name || I18N_T("Karta"), draggable: "false" }),
+            );
           !c &&
             ids.length > 1 &&
             (im.classList.add("tap"),
@@ -2816,6 +2826,18 @@
           d("b", {}, String(o.draw.length)),
           d("span", { class: "hud-k" }, I18N_T("ODRZUCONE")),
           d("b", {}, String(o.discard.length)),
+          d(
+            "div",
+            { class: "hud-bar" },
+            d("i", {
+              style:
+                "width:" +
+                Math.round(
+                  (100 * o.draw.length) / Math.max(1, o.draw.length + o.discard.length + (o.shown?.length || 0)),
+                ) +
+                "%",
+            }),
+          ),
         ),
       );
       (c && u.append(d("div", { class: "preview-flag" }, I18N_T("Podgląd karty – dotknij, aby wrócić"))),
@@ -3142,6 +3164,34 @@
         dv,
         dplus,
       ),
+      trimNow = edgeTrimOf(e),
+      trimValEl = d("span", { class: "copies" }, trimNow + "%"),
+      setTrimStep = async (x) => {
+        let nv = Math.max(0, Math.min(EDGE_TRIM_MAX, trimNow + x));
+        if (nv === trimNow) return;
+        trimNow = nv;
+        trimValEl.textContent = nv + "%";
+        trimMinBtn.disabled = nv <= 0;
+        trimPlusBtn.disabled = nv >= EDGE_TRIM_MAX;
+        await pt(t, (g) => {
+          g.edgeTrim = nv;
+        });
+      },
+      trimMinBtn = G("minus", I18N_T("Mniejsze przycięcie brzegu karty"), () => setTrimStep(-1), "small"),
+      trimPlusBtn = G("plus", I18N_T("Większe przycięcie brzegu karty"), () => setTrimStep(1), "small"),
+      trimRow = d(
+        "div",
+        { class: "setting" },
+        d(
+          "div",
+          { class: "setting-text" },
+          d("strong", {}, I18N_T("Przytnij brzeg karty")),
+          d("span", { class: "muted" }, I18N_T("Ukrywa biały margines po cięciu (tylko na ekranie gry)")),
+        ),
+        trimMinBtn,
+        trimValEl,
+        trimPlusBtn,
+      ),
       OV = ["portrait", "landscape"].includes(e.orientation) ? e.orientation : "auto",
       orBtns = [
         ["auto", "Automatycznie"],
@@ -3204,6 +3254,7 @@
           { class: "scroll" },
           d("h2", { class: "sec-h" }, I18N_T("Ustawienia gry")),
           drawRow,
+          trimRow,
           orRow,
           d("h2", { class: "sec-h sec-gap" }, I18N_T("Karty")),
           d("div", { class: "row summary-row" }, c, d("span", { class: "grow" }), bulk),
@@ -3223,6 +3274,8 @@
       );
     rt.append(p);
     dmin.disabled = dc <= 1;
+    trimMinBtn.disabled = trimNow <= 0;
+    trimPlusBtn.disabled = trimNow >= EDGE_TRIM_MAX;
     dplus.disabled = dc >= 6;
     function m() {
       bulk.hidden = !n.length;
@@ -3543,7 +3596,7 @@
       }
     );
   }
-  var APP_VER = "2026.11.15-v8";
+  var APP_VER = "2026.11.15-v12";
   function showUpd() {
     if (document.querySelector(".upd-bar")) return;
     let ub = d(

@@ -5,7 +5,11 @@ const os = require("node:os");
 const { serve, reporter, newPage, createGameWithImages, chromium } = require("./helpers");
 const { png, gridPdf } = require("./fixtures");
 
-const card = (i) => ({ name: `c${String(i).padStart(3, "0")}.png`, mimeType: "image/png", buffer: png(60, 84, [40 + i * 10, 90, 120]) });
+const card = (i) => ({
+  name: `c${String(i).padStart(3, "0")}.png`,
+  mimeType: "image/png",
+  buffer: png(60, 84, [40 + i * 10, 90, 120]),
+});
 const cards = (n) => Array.from({ length: n }, (_, i) => card(i));
 const bodyText = (page) => page.evaluate(() => document.body.innerText);
 
@@ -51,7 +55,17 @@ const bodyText = (page) => page.evaluate(() => document.body.innerText);
     t.ok("dodano 5 kart", (await page.locator(".tile").count()) === 5);
     await page.click("text=Graj");
     await page.waitForSelector(".draw-btn");
-    t.ok("wersja aplikacji w stopce biblioteki", /wersja \d{4}\.\d{2}\.\d{2}/.test(await (async () => { await page.goto(base + "#/"); await page.waitForSelector(".foot"); await page.waitForTimeout(400); return page.locator(".foot").innerText(); })()));
+    t.ok(
+      "wersja aplikacji w stopce biblioteki",
+      /wersja \d{4}\.\d{2}\.\d{2}/.test(
+        await (async () => {
+          await page.goto(base + "#/");
+          await page.waitForSelector(".foot");
+          await page.waitForTimeout(400);
+          return page.locator(".foot").innerText();
+        })(),
+      ),
+    );
     t.ok("brak błędów JS", errors.length === 0, errors.join("; "));
     await ctx.close();
   }
@@ -95,7 +109,11 @@ const bodyText = (page) => page.evaluate(() => document.body.innerText);
     await page.fill("dialog input", "Duzo");
     await page.click('dialog button:has-text("Utwórz")');
     await page.waitForSelector("text=/Dodaj karty/");
-    const many = Array.from({ length: 305 }, (_, i) => ({ name: `c${i}.png`, mimeType: "image/png", buffer: png(8, 8) }));
+    const many = Array.from({ length: 305 }, (_, i) => ({
+      name: `c${i}.png`,
+      mimeType: "image/png",
+      buffer: png(8, 8),
+    }));
     const pick = async () => {
       await page.click("text=/Dodaj karty/");
       await page.waitForTimeout(300);
@@ -107,7 +125,10 @@ const bodyText = (page) => page.evaluate(() => document.body.innerText);
     t.ok("pojawia się pytanie „Duży import”", /Duży import/.test(await page.locator("dialog[open]").innerText()));
     await page.click('dialog[open] button:has-text("Anuluj")');
     await page.waitForTimeout(600);
-    t.ok("po Anuluj nie ma okna postępu ani dialogu", (await page.locator(".busy").count()) === 0 && (await page.locator("dialog[open]").count()) === 0);
+    t.ok(
+      "po Anuluj nie ma okna postępu ani dialogu",
+      (await page.locator(".busy").count()) === 0 && (await page.locator("dialog[open]").count()) === 0,
+    );
     t.ok("nic nie dodano", (await page.locator(".tile").count()) === 0);
     await pick();
     await page.waitForSelector("dialog[open]");
@@ -116,7 +137,10 @@ const bodyText = (page) => page.evaluate(() => document.body.innerText);
     await page.click(".busy .btn");
     await page.waitForTimeout(1500);
     t.ok("anulowanie w trakcie kończy import", (await page.locator(".busy").count()) === 0);
-    t.ok("komunikat „Import przerwany.”", (await page.locator(".toast").allInnerTexts()).some((x) => /przerwany/i.test(x)));
+    t.ok(
+      "komunikat „Import przerwany.”",
+      (await page.locator(".toast").allInnerTexts()).some((x) => /przerwany/i.test(x)),
+    );
     await ctx.close();
   }
 
@@ -133,10 +157,22 @@ const bodyText = (page) => page.evaluate(() => document.body.innerText);
     await page.keyboard.press("Space");
     await page.waitForTimeout(300);
     t.ok("spacja (fokus na body) dobiera kartę", (await inDeck()) === 4);
+    const sc = await page.evaluate(() => {
+      const m = getComputedStyle(document.querySelector(".gcard-img")).transform;
+      return m === "none" ? 1 : parseFloat(m.slice(7));
+    });
+    t.ok(
+      "karta jest przycięta domyślnie o 1% z każdej strony (skala ~1,02)",
+      Math.abs(sc - 1 / 0.98) < 0.002,
+      String(sc),
+    );
     await page.focus('button[aria-label*="Tasuj"]');
     await page.keyboard.press("Enter");
     await page.waitForTimeout(400);
-    t.ok("Enter na przycisku „Tasuj” otwiera okno, ale nie dobiera karty", (await page.locator("dialog[open]").count()) === 1 && (await inDeck()) === 4);
+    t.ok(
+      "Enter na przycisku „Tasuj” otwiera okno, ale nie dobiera karty",
+      (await page.locator("dialog[open]").count()) === 1 && (await inDeck()) === 4,
+    );
     await ctx.close();
   }
 
@@ -161,7 +197,10 @@ const bodyText = (page) => page.evaluate(() => document.body.innerText);
     await page.click("text=Graj");
     await page.waitForSelector(".draw-btn");
     await page.waitForTimeout(400);
-    t.ok("wejście do gry blokuje orientację na landscape", (await page.evaluate(() => window.__locks)).includes("landscape"));
+    t.ok(
+      "wejście do gry blokuje orientację na landscape",
+      (await page.evaluate(() => window.__locks)).includes("landscape"),
+    );
     t.ok("brak podpowiedzi, gdy blokada się udała", (await page.locator(".orient-hint").count()) === 0);
     const playHash = await page.evaluate(() => location.hash);
     await page.evaluate(() => (location.hash = "#/"));
@@ -190,7 +229,10 @@ const bodyText = (page) => page.evaluate(() => document.body.innerText);
     await a.page.waitForTimeout(300);
     await a.page.goto(base + "#/");
     await a.page.waitForSelector(".game:not(.new)");
-    const [dl] = await Promise.all([a.page.waitForEvent("download"), a.page.click('button[title^="Zapisz wszystkie"]')]);
+    const [dl] = await Promise.all([
+      a.page.waitForEvent("download"),
+      a.page.click('button[title^="Zapisz wszystkie"]'),
+    ]);
     const zip = path.join(os.tmpdir(), `deckengine-test-${Date.now()}.zip`);
     await dl.saveAs(zip);
     t.ok("eksport tworzy plik ZIP", fs.statSync(zip).size > 100);
@@ -198,13 +240,19 @@ const bodyText = (page) => page.evaluate(() => document.body.innerText);
 
     const b = await newPage(browser);
     await b.page.goto(base);
-    const [fc] = await Promise.all([b.page.waitForEvent("filechooser"), b.page.click('button[title^="Wczytaj kopię"]')]);
+    const [fc] = await Promise.all([
+      b.page.waitForEvent("filechooser"),
+      b.page.click('button[title^="Wczytaj kopię"]'),
+    ]);
     await fc.setFiles(zip);
     await b.page.waitForSelector(".game:not(.new)", { timeout: 20000 });
     t.ok("import kopii odtwarza grę w czystej przeglądarce", (await b.page.locator(".game:not(.new)").count()) === 1);
     await b.page.click(".game-edit");
     await b.page.waitForSelector(".seg-btn");
-    t.ok("ustawienie orientacji przeżyło eksport/import", (await b.page.locator(".seg-btn.on").innerText()).toLowerCase().includes("pionowo"));
+    t.ok(
+      "ustawienie orientacji przeżyło eksport/import",
+      (await b.page.locator(".seg-btn.on").innerText()).toLowerCase().includes("pionowo"),
+    );
     t.ok("4 karty po imporcie", (await b.page.locator(".tile").count()) === 4);
     // wersja angielska
     await b.page.evaluate(() => localStorage.setItem("lang", "en"));
@@ -245,15 +293,29 @@ const bodyText = (page) => page.evaluate(() => document.body.innerText);
     });
     await page.goto(url);
     await page.waitForSelector(".game.new");
-    const ctl = await ready(page).then(() => true, () => false);
+    const ctl = await ready(page).then(
+      () => true,
+      () => false,
+    );
     t.ok("Service Worker przejmuje stronę", ctl, "odpowiedzi >= 400: " + (bad.join(", ") || "brak"));
-    await page.waitForFunction(async () => !(await caches.keys()).includes("deckengine-old"), null, { timeout: 20000 }).catch(() => {});
+    await page
+      .waitForFunction(async () => !(await caches.keys()).includes("deckengine-old"), null, { timeout: 20000 })
+      .catch(() => {});
     const keys = await page.evaluate(() => caches.keys());
     t.ok("stary cache DeckEngine usunięty", !keys.includes("deckengine-old"), keys.join(","));
     t.ok("cache innej aplikacji nietknięty", keys.includes("other-app-v1"), keys.join(","));
     const shellKey = keys.find((k) => k.startsWith("deckengine-shell-"));
-    const shell = shellKey ? await page.evaluate(async (k) => (await (await caches.open(k)).keys()).map((r) => new URL(r.url).pathname), shellKey) : [];
-    t.ok("powłoka aplikacji zapisana w cache", ["/", "/index.html", "/manifest.webmanifest"].every((p) => shell.includes(p)), shell.join(","));
+    const shell = shellKey
+      ? await page.evaluate(
+          async (k) => (await (await caches.open(k)).keys()).map((r) => new URL(r.url).pathname),
+          shellKey,
+        )
+      : [];
+    t.ok(
+      "powłoka aplikacji zapisana w cache",
+      ["/", "/index.html", "/manifest.webmanifest"].every((p) => shell.includes(p)),
+      shell.join(","),
+    );
     await ctx.setOffline(true);
     await page.reload();
     await page.waitForSelector(".game.new", { timeout: 8000 }).catch(() => {});
@@ -263,7 +325,10 @@ const bodyText = (page) => page.evaluate(() => document.body.innerText);
 
     // nowa wersja na serwerze + wolna sieć (>3 s): start ze starej kopii, potem komunikat
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "deckengine-site-"));
-    fs.cpSync(path.join(__dirname, ".."), tmp, { recursive: true, filter: (s) => !/^(node_modules|\.git|tests)([\\/]|$)/.test(path.relative(path.join(__dirname, ".."), s)) });
+    fs.cpSync(path.join(__dirname, ".."), tmp, {
+      recursive: true,
+      filter: (s) => !/^(node_modules|\.git|tests)([\\/]|$)/.test(path.relative(path.join(__dirname, ".."), s)),
+    });
     const second = await serve(tmp);
     const { ctx: c2, page: p2 } = await newPage(browser, { width: 1000, height: 800 });
     await p2.goto(second.url);
