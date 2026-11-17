@@ -1,14 +1,6 @@
 /* ---------- ekran gry ---------- */
 .play { display: grid; grid-template-rows: minmax(0, 1fr) auto; background: #000; }
 .stage { position: relative; min-height: 0; overflow: hidden; }
-/* Karta jest przypięta do całego obszaru sceny (a nie do własnego rozmiaru), więc zawsze mieści się w oknie – także na dużym monitorze. */
-.card-img {
-  position: absolute; left: 4px; right: 4px; bottom: 4px; top: calc(4px + env(safe-area-inset-top));
-  width: calc(100% - 8px); height: calc(100% - 8px - env(safe-area-inset-top));
-  object-fit: contain; user-select: none; -webkit-user-drag: none; animation: pop .16s ease-out;
-}
-@keyframes pop { from { opacity: .3; transform: scale(.98); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .card-img { animation: none; } }
 .hint-box { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(28rem, 100%); text-align: center; padding: 24px; }
 .hint-box h2 { margin-bottom: 10px; font-size: 1.4rem; }
 .preview-flag {

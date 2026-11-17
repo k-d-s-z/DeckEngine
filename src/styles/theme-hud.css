@@ -74,14 +74,14 @@ dialog.dlg.sheet { border-radius: 10px 10px 0 0; }
 .hud-read { position: absolute; left: calc(8px + env(safe-area-inset-left)); top: calc(8px + env(safe-area-inset-top)); z-index: 3; pointer-events: none; display: grid; grid-template-columns: auto auto; gap: 3px 12px; align-items: baseline; font: 700 .8rem/1.1 var(--mono); letter-spacing: .06em; color: var(--text); background: rgba(8, 11, 16, .9); border: 1px solid var(--accent); border-radius: 4px; padding: 7px 10px; }
 .hud-read .hud-k { color: var(--text); opacity: .85; font-weight: 400; font-size: .72rem; }
 .hud-read b { color: var(--accent); justify-self: end; font-size: .95rem; }
-.card-img, .gcard { animation: none; }
+.gcard { animation: none; }
 .gcard { border-radius: 6px; }
 
 .file-hidden { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
 
 /* =====================  WARSTWA „WYRAZISTOŚĆ”  ===================== */
 :root {
-  --hot: #ff4d6d; --accent-dim: rgba(46, 230, 211, .5);
+  --accent-dim: rgba(46, 230, 211, .5);
   --tick: repeating-linear-gradient(90deg, var(--accent) 0 1px, transparent 1px 8px);
   --scan: repeating-linear-gradient(0deg, rgba(46, 230, 211, .045) 0 1px, transparent 1px 4px);
   --brk2: linear-gradient(var(--accent), var(--accent)) top left / 18px 2px no-repeat, linear-gradient(var(--accent), var(--accent)) top left / 2px 18px no-repeat,
@@ -178,3 +178,26 @@ dialog.dlg { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 0 0 1px var(--
 .cover-prev { flex: none; width: 64px; height: 64px; object-fit: contain; background: #0a0f16; border: 1px solid var(--glass-line); border-radius: 4px; }
 .cover-prev[hidden], .cover-actions [hidden] { display: none; }
 .cover-actions { display: flex; gap: 8px; flex-wrap: wrap; width: 100%; }
+
+/* ---------- importer: wybór okładki z pola ---------- */
+.overlay .cell.cover rect { fill: rgba(255, 209, 102, .2); stroke: #ffd166; stroke-width: 6; }
+.overlay .cell.cover.off rect { stroke-dasharray: 8 6; }
+.overlay .cell.cover text { fill: #ffd166; stroke: #000; }
+.overlay.picking .cell rect { stroke: #ffd166; fill: rgba(255, 209, 102, .1); }
+.btn.on { border-color: #ffd166; color: #ffd166; box-shadow: 0 0 10px rgba(255, 209, 102, .35); }
+.cover-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; color: #ffd166; }
+.cover-status[hidden] { display: none; }
+
+/* ---------- v16: dostępność ---------- */
+/* Cele dotyku min. 44 px (WCAG 2.5.5 / wytyczne platform). */
+.btn.tb, .imp-panel .row.wrap .btn { min-height: 44px; }
+.toast-x { width: 44px; height: 44px; }
+/* Mniej ruchu: wyłącz animacje i przejścia. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+}
+/* Mniej przezroczystości: pełne tło zamiast szkła (tańsze i czytelniejsze). */
+@media (prefers-reduced-transparency: reduce) {
+  .hud-read, .toast, .orient-hint, .upd-bar, .preview-flag, dialog.dlg { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: #0e131b !important; }
+  body::before { display: none; }
+}

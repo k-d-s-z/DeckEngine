@@ -3,14 +3,16 @@
       try {
         let l = localStorage.getItem("lang");
         if (l === "pl" || l === "en") return l;
-      } catch {}
+      } catch {
+        /* localStorage niedostępny – zostaje język przeglądarki */
+      }
       return /^pl/i.test(navigator.language || "") ? "pl" : "en";
     })(),
     I18N_EN = /*@I18N_EN@*/ {},
     I18N_T = (pl, ...a) => {
       let s = I18N_LANG === "en" && I18N_EN[pl] !== void 0 ? I18N_EN[pl] : pl,
         q = 0;
-      return s.replace(/\{(\d*)(?:\|([^|}]*)\|([^}]*))?\}/g, (m, i, o, p) => {
+      return s.replace(/\{(\d*)(?:\|([^|}]*)\|([^}]*))?\}/g, (_m, i, o, p) => {
         let v = a[i === "" ? q++ : +i];
         return o !== void 0 ? (+v === 1 ? o : p) : v;
       });
@@ -749,7 +751,9 @@
             } catch (err) {
               try {
                 await rd.cancel();
-              } catch {}
+              } catch {
+                /* strumień już zamknięty – ważny jest błąd źródłowy rzucany niżej */
+              }
               throw err?.zip ? err : zipErr(I18N_T("Uszkodzony wpis ZIP: ") + P);
             }
             return new Blob(chunks);
@@ -851,6 +855,20 @@
       return { name: e ?? yt(t.name || "karta"), blob: r, thumb: await xt(n), w: i, h: c };
     } finally {
       n.close?.();
+    }
+  }
+  // Obrót obrazu o 90° w prawo (do okładki); zwraca nowy JPEG.
+  async function rotateBlob90(blob) {
+    let img = await kt(blob);
+    try {
+      let [w, h] = Zt(img),
+        cv = document.createElement("canvas");
+      ((cv.width = h), (cv.height = w));
+      let cx = cv.getContext("2d");
+      (cx.translate(h / 2, w / 2), cx.rotate(Math.PI / 2), cx.drawImage(img, -w / 2, -h / 2));
+      return await bt(cv, 0.85);
+    } finally {
+      img.close?.();
     }
   }
   async function Oe(t) {
@@ -1645,8 +1663,7 @@
       Tp = y0,
       B = y1,
       cols = 0,
-      rows = 0,
-      viaMarks = false;
+      rows = 0;
     const okx = regular(mx),
       oky = regular(my);
     if (okx) {
@@ -1775,22 +1792,26 @@
   function impCancelRender() {
     try {
       curRender?.cancel();
-    } catch {}
+    } catch {
+      /* render już zakończony */
+    }
   }
   var PDF_PAGE_TIMEOUT = 6e4, // maks. czas renderowania jednej strony
     PDF_OPEN_TIMEOUT = 6e4, // maks. czas otwierania pliku PDF
     IMPORT_MAX_PAGES = 1000; // twardy limit stron/obrazów w jednym imporcie
   async function pdfOpen(data) {
-    let task = (await An()).getDocument({ data }),
+    let task = (await An()).getDocument({ data, isEvalSupported: !1, enableScripting: !1 }),
       timer;
     try {
       return await Promise.race([
         task.promise,
-        new Promise((rs, rj) => {
+        new Promise((_rs, rj) => {
           timer = setTimeout(() => {
             try {
               task.destroy();
-            } catch {}
+            } catch {
+              /* zadanie już zniszczone; błąd zgłaszamy niżej */
+            }
             rj(new Error(I18N_T("Otwieranie PDF trwa zbyt długo.")));
           }, PDF_OPEN_TIMEOUT);
         }),
@@ -1816,15 +1837,19 @@
     try {
       await Promise.race([
         task.promise,
-        new Promise((rs, rj) => {
+        new Promise((_rs, rj) => {
           timer = setTimeout(() => {
             // strona się zawiesiła: przerwij render i zamknij dokument (kończy jego worker)
             try {
               task.cancel();
-            } catch {}
+            } catch {
+              /* render już zakończony */
+            }
             try {
               t.destroy();
-            } catch {}
+            } catch {
+              /* dokument już zamknięty; błąd zgłaszamy niżej */
+            }
             rj(new Error(I18N_T("Strona PDF renderuje się zbyt długo.")));
           }, PDF_PAGE_TIMEOUT);
         }),
@@ -1990,8 +2015,9 @@
         }
       } finally {
         h.close();
-        if (h.cancelled) return (e.remove(), a.forEach((k) => k.destroy?.()), D(I18N_T("Import przerwany.")), null);
       }
+      // Sprawdzenie poza finally: return w finally połknąłby ewentualny wyjątek z pętli.
+      if (h.cancelled) return (e.remove(), a.forEach((k) => k.destroy?.()), D(I18N_T("Import przerwany.")), null);
     }
     let r = o
         .filter((h) => h.det)
@@ -2062,21 +2088,7 @@
           d("label", { class: "ctl" }, d("span", {}, k), O, C)
         );
       }),
-      J = (h, k) => (["cols", "rows"].includes(h) ? String(k) : (+k).toFixed(1) + "%"),
-      V = 0,
-      At = () => {
-        (clearTimeout(V), (V = setTimeout(sn, 250)));
-      };
-    function sn() {
-      if (!f) return;
-      let h = o[l],
-        k = jt(f.canvas),
-        x = Xt(k.data, k.w, k.h, h.params.cols, h.params.rows);
-      if (x) {
-        for (let j of ["mL", "mT", "mR", "mB", "gx", "gy"]) h.params[j] = x.params[j];
-        (h.excluded.clear(), it(), q());
-      }
-    }
+      J = (h, k) => (["cols", "rows"].includes(h) ? String(k) : (+k).toFixed(1) + "%");
     function detectMarginsOnly() {
       if (!f) return;
       let image = jt(f.canvas),
@@ -2098,12 +2110,53 @@
         5000,
       );
     }
+    let coverCell = null,
+      coverMode = !1;
+    function updCoverUi() {
+      coverBtn.classList.toggle("on", coverMode);
+      Q.classList.toggle("picking", coverMode);
+      coverStatus.hidden = !coverCell && !coverMode;
+      coverStatus.replaceChildren(
+        coverMode
+          ? I18N_T("Dotknij pola, które ma być okładką (może być pominięte w talii).")
+          : coverCell
+            ? I18N_T("Okładka: strona {}, pole {}. Pole nie musi trafić do talii.", coverCell.page + 1, coverCell.n)
+            : "",
+        ...(coverCell && !coverMode
+          ? [
+              d(
+                "button",
+                {
+                  class: "btn ghost",
+                  type: "button",
+                  onclick: () => {
+                    ((coverCell = null), updCoverUi(), q(), Ct());
+                  },
+                },
+                I18N_T("Usuń okładkę"),
+              ),
+            ]
+          : []),
+      );
+    }
     let marginButton = d(
         "button",
         { class: "btn", type: "button", onclick: detectMarginsOnly },
         I18N_T("Wykryj marginesy"),
       ),
       Yt = d("button", { class: "btn", type: "button" }, I18N_T("Wykryj siatkę")),
+      coverBtn = d(
+        "button",
+        {
+          class: "btn ghost cover-pick-btn",
+          type: "button",
+          onclick: () => {
+            ((coverMode = !coverMode), updCoverUi());
+          },
+        },
+        I18N_T("★ Wybierz okładkę"),
+      ),
+      coverStatus = d("p", { class: "hint cover-status", hidden: !0 }),
       te = d("button", { class: "btn ghost", type: "button" }, I18N_T("Zaznacz wszystkie pola na stronie")),
       ee = d("button", { class: "btn ghost", type: "button" }, I18N_T("Odznacz wszystkie pola na stronie")),
       Lt = d("input", { type: "checkbox", checked: !0 }),
@@ -2113,6 +2166,8 @@
         { class: "imp-panel" },
         $,
         d("div", { class: "row wrap" }, marginButton, Yt, te, ee),
+        d("div", { class: "row wrap" }, coverBtn),
+        coverStatus,
         ...dt.slice(0, 2),
         d(
           "details",
@@ -2154,8 +2209,9 @@
         E = Math.round(h * 0.035);
       for (let C of j) {
         let O = x.excluded.has(C.r + "," + C.c),
+          isCover = !!coverCell && coverCell.page === l && coverCell.key === C.r + "," + C.c,
           I = document.createElementNS(Mt, "g");
-        I.setAttribute("class", "cell" + (O ? " off" : ""));
+        I.setAttribute("class", "cell" + (O ? " off" : "") + (isCover ? " cover" : ""));
         let N = document.createElementNS(Mt, "rect");
         for (let [ct, un] of Object.entries({ x: C.x, y: C.y, width: C.w, height: C.h })) N.setAttribute(ct, un);
         let Y = document.createElementNS(Mt, "text");
@@ -2163,10 +2219,18 @@
           Y.setAttribute("y", C.y + C.h / 2 + E / 3),
           Y.setAttribute("font-size", E),
           Y.setAttribute("text-anchor", "middle"),
-          (Y.textContent = O ? "\xD7" : String(C.r * x.params.cols + C.c + 1)),
+          (Y.textContent = isCover ? "\u2605" : O ? "\xD7" : String(C.r * x.params.cols + C.c + 1)),
           I.append(N, Y),
           I.addEventListener("click", () => {
             let ct = C.r + "," + C.c;
+            if (coverMode) {
+              ((coverCell = isCover ? null : { page: l, key: ct, n: C.r * x.params.cols + C.c + 1 }),
+                (coverMode = !1),
+                updCoverUi(),
+                q(),
+                Ct());
+              return;
+            }
             (x.excluded.has(ct) ? x.excluded.delete(ct) : x.excluded.add(ct), q());
           }),
           Q.append(I));
@@ -2182,11 +2246,9 @@
         L.classList.toggle("skipped", !o[l].include));
     }
     function Ct() {
-      let h = 0,
-        k = 0;
+      let h = 0;
       for (let x of o) {
         if (!x.include) continue;
-        k++;
         let j = x.params.cols * x.params.rows;
         for (let E of x.excluded) {
           let [C, O] = E.split(",").map(Number);
@@ -2194,7 +2256,8 @@
         }
         h += j;
       }
-      ((A.textContent = h ? I18N_T("Dodaj {} kart", h) : I18N_T("Dodaj karty")), (A.disabled = h === 0));
+      ((A.textContent = h ? I18N_T("Dodaj {} kart", h) : coverCell ? I18N_T("Ustaw okładkę") : I18N_T("Dodaj karty")),
+        (A.disabled = h === 0 && !coverCell));
     }
     async function Dt(h) {
       l = h;
@@ -2275,7 +2338,7 @@
         it();
       }));
     function oe() {
-      (p++, ae.disconnect(), clearTimeout(V), f && (f.canvas.width = 0), a.forEach((h) => h.destroy?.()), e.remove());
+      (p++, ae.disconnect(), f && (f.canvas.width = 0), a.forEach((h) => h.destroy?.()), e.remove());
     }
     async function ln() {
       let h = _(I18N_T("Wycinanie kart…")),
@@ -2304,6 +2367,22 @@
           }
           (C === l && f) || (O.width = 0);
         }
+        if (coverCell) {
+          // Okładka może pochodzić z pominiętego pola lub strony (np. rewers) – nie trafia do talii.
+          let E = o[coverCell.page],
+            O = coverCell.page === l && f ? f.canvas : await E.render(),
+            [cr, cc] = coverCell.key.split(",").map(Number),
+            I = _t(E.params, O.width, O.height).find((z) => z.r === cr && z.c === cc);
+          if (I) {
+            let N = document.createElement("canvas");
+            ((N.width = Math.max(1, Math.round(I.w))),
+              (N.height = Math.max(1, Math.round(I.h))),
+              N.getContext("2d").drawImage(O, I.x, I.y, I.w, I.h, 0, 0, N.width, N.height),
+              (k.cover = await xt(N)),
+              (N.width = 0));
+          }
+          (coverCell.page === l && f) || (O.width = 0);
+        }
       } finally {
         h.close();
       }
@@ -2317,7 +2396,7 @@
           A.disabled = !0;
           try {
             let k = await ln();
-            if (!k.length) {
+            if (!k.length && !k.cover) {
               (D(I18N_T("Żadna karta nie została wycięta (wszystkie pola puste lub wyłączone).")), (A.disabled = !1));
               return;
             }
@@ -2380,6 +2459,19 @@
     }
   }
   window.addEventListener("hashchange", Bt);
+  var lastGlobalErrorAt = 0;
+  function reportGlobalError(reason) {
+    console.error(reason);
+    // Anulowanie (przerwany import, render) to normalna sytuacja, nie błąd.
+    let name = reason?.name || "";
+    if (name === "AbortError" || name === "RenderingCancelledException" || reason?.cancelled) return;
+    let now = Date.now();
+    if (now - lastGlobalErrorAt < 5000) return;
+    lastGlobalErrorAt = now;
+    D(I18N_T("Coś poszło nie tak: ") + (reason?.message || reason), 6e3, "error");
+  }
+  window.addEventListener("unhandledrejection", (ev) => reportGlobalError(ev.reason));
+  window.addEventListener("error", (ev) => ev.error && reportGlobalError(ev.error));
   var IP = null,
     IS = new Set();
   window.addEventListener("beforeinstallprompt", (e) => {
@@ -2429,7 +2521,9 @@
             try {
               p.prompt();
               await p.userChoice;
-            } catch {}
+            } catch {
+              /* użytkownik zamknął okno instalacji lub przeglądarka je odrzuciła */
+            }
             refresh();
           } else
             await nt({
@@ -2447,7 +2541,9 @@
         () => {
           try {
             localStorage.setItem("installDismissed", String(Date.now()));
-          } catch {}
+          } catch {
+            /* brak pamięci lokalnej – baner pokaże się ponownie */
+          }
           el.hidden = !0;
         },
         "small",
@@ -2488,7 +2584,9 @@
             if (I18N_LANG === code) return;
             try {
               localStorage.setItem("lang", code);
-            } catch {}
+            } catch {
+              /* brak pamięci lokalnej – język nie zostanie zapamiętany */
+            }
             location.reload();
           },
         },
@@ -2550,7 +2648,9 @@
             d(
               "button",
               { class: "game-main", type: "button", onclick: () => K("#/play/" + p.id) },
-              p.cover ? d("img", { src: n(p.cover), alt: "" }) : d("div", { class: "noimg", html: W("image") }),
+              p.cover
+                ? d("img", { src: n(p.cover), alt: "", loading: "lazy", decoding: "async" })
+                : d("div", { class: "noimg", html: W("image") }),
               d(
                 "div",
                 { class: "game-text" },
@@ -2845,7 +2945,13 @@
             im = d(
               "div",
               { class: "gcard", style: "--ts:" + trimScale },
-              d("img", { class: "gcard-img", src: i(S.id), alt: S.name || I18N_T("Karta"), draggable: "false" }),
+              d("img", {
+                class: "gcard-img",
+                src: i(S.id),
+                alt: S.name || I18N_T("Karta"),
+                draggable: "false",
+                decoding: "async",
+              }),
             );
           !c &&
             ids.length > 1 &&
@@ -3108,7 +3214,9 @@
                         (fsO = !0),
                         await screen.orientation.lock(OR1),
                         (lk = !0));
-                    } catch {}
+                    } catch {
+                      /* blokada orientacji nieobsługiwana (np. iOS) – działa podpowiedź obrotu */
+                    }
                     chkO();
                   },
                 },
@@ -3143,7 +3251,9 @@
           "wakeLock" in navigator &&
             document.visibilityState === "visible" &&
             (M = await navigator.wakeLock.request("screen"));
-        } catch {}
+        } catch {
+          /* Wake Lock niedostępny lub odrzucony – ekran może zgasnąć */
+        }
       };
     return (
       document.addEventListener("visibilitychange", $),
@@ -3153,7 +3263,9 @@
         (ro.disconnect(), mqO.removeEventListener("change", chkO));
         try {
           screen.orientation?.unlock?.();
-        } catch {}
+        } catch {
+          /* nic do odblokowania */
+        }
         fsO && document.fullscreenElement && document.exitFullscreen().catch(() => {});
         (hnt?.remove(),
           window.removeEventListener("keydown", B),
@@ -3202,7 +3314,7 @@
       coverUrl = null,
       coverPrev = d("img", { class: "cover-prev", alt: "" }),
       coverSub = d("span", { class: "muted" }),
-      coverEffectiveCard = () => (coverCustomBlob ? null : n.find((c) => c.id === coverCardNow) || n[0] || null),
+      coverDefaultCard = () => n[0] || null,
       coverClear = d(
         "button",
         {
@@ -3211,13 +3323,40 @@
           onclick: async () => {
             await pt(t, (g) => {
               delete g.coverCustom;
+              delete g.coverCardId;
             });
             coverCustomBlob = null;
+            coverCardNow = null;
             refreshCover();
             s();
           },
         },
-        d("span", { class: "btn-label" }, I18N_T("Usuń własny obraz")),
+        d("span", { class: "btn-label" }, I18N_T("Przywróć domyślną okładkę")),
+      ),
+      coverRotate = d(
+        "button",
+        {
+          type: "button",
+          class: "btn",
+          onclick: async () => {
+            let src = coverCustomBlob || coverDefaultCard()?.thumb || coverDefaultCard()?.blob;
+            if (!src) return;
+            try {
+              let rotated = await rotateBlob90(src);
+              await pt(t, (g) => {
+                g.coverCustom = rotated;
+              });
+              coverCustomBlob = rotated;
+              refreshCover();
+              s();
+            } catch (err) {
+              console.error(err);
+              D(I18N_T("Nie udało się obrócić okładki."), 4e3);
+            }
+          },
+        },
+        d("span", { html: W("rotate") }),
+        d("span", { class: "btn-label" }, I18N_T("Obróć okładkę")),
       ),
       coverPick = Nt({
         label: I18N_T("Wybierz obraz"),
@@ -3232,8 +3371,10 @@
             let { thumb } = await Oe(new Blob([f], { type: f.type }));
             await pt(t, (g) => {
               g.coverCustom = thumb;
+              delete g.coverCardId;
             });
             coverCustomBlob = thumb;
+            coverCardNow = null;
             refreshCover();
             s();
           } catch (err) {
@@ -3243,25 +3384,27 @@
         },
       }),
       refreshCover = () => {
-        let pick = coverEffectiveCard(),
+        let pick = coverDefaultCard(),
           blob = coverCustomBlob || (pick ? pick.thumb || pick.blob : null);
         for (let [id, b] of coverMarks) {
           if (!b.isConnected) {
             coverMarks.delete(id);
             continue;
           }
-          b.classList.toggle("on", pick?.id === id);
-          b.setAttribute("aria-pressed", String(pick?.id === id));
+          let on = !!coverCustomBlob && coverCardNow === id;
+          b.classList.toggle("on", on);
+          b.setAttribute("aria-pressed", String(on));
         }
         coverUrl && URL.revokeObjectURL(coverUrl);
         coverUrl = blob ? URL.createObjectURL(blob) : null;
         coverPrev.hidden = !blob;
         blob && (coverPrev.src = coverUrl);
         coverClear.hidden = !coverCustomBlob;
+        coverRotate.hidden = !blob;
         coverSub.textContent = coverCustomBlob
-          ? I18N_T("Własny obraz")
+          ? I18N_T("Własna okładka")
           : pick
-            ? I18N_T("Karta z talii (gwiazdka przy karcie)")
+            ? I18N_T("Domyślnie: pierwsza karta z talii")
             : I18N_T("Brak okładki");
       },
       coverRow = d(
@@ -3276,10 +3419,12 @@
           d(
             "span",
             { class: "muted" },
-            I18N_T("Wskaż kartę gwiazdką albo wybierz własny obraz. Własny obraz nie trafia do talii."),
+            I18N_T(
+              "Wskaż kartę gwiazdką, wybierz własny obraz albo ustaw okładkę w importerze PDF. Okładka nie trafia do talii.",
+            ),
           ),
         ),
-        d("div", { class: "cover-actions" }, coverPick, coverClear),
+        d("div", { class: "cover-actions" }, coverPick, coverRotate, coverClear),
       ),
       dc = Math.max(1, Math.min(6, e.drawCount | 0 || 1)),
       dv = d("span", { class: "copies" }, String(dc)),
@@ -3454,12 +3599,14 @@
           "star",
           I18N_T("Ustaw jako okładkę gry"),
           async () => {
+            // Zapisujemy kopię obrazu: okładka zostaje także po usunięciu tej karty z talii.
+            let snap = y.thumb || y.blob;
             await pt(t, (g) => {
               g.coverCardId = y.id;
-              delete g.coverCustom;
+              g.coverCustom = snap;
             });
             coverCardNow = y.id;
-            coverCustomBlob = null;
+            coverCustomBlob = snap;
             refreshCover();
             s();
           },
@@ -3509,9 +3656,12 @@
           G("plus", I18N_T("Więcej kopii"), () => B(1), "small"),
         ),
       );
-      (coverMarks.set(y.id, CB),
-        CB.classList.toggle("on", coverEffectiveCard()?.id === y.id),
-        CB.setAttribute("aria-pressed", String(coverEffectiveCard()?.id === y.id)));
+      coverMarks.set(y.id, CB);
+      {
+        let on = !!coverCustomBlob && coverCardNow === y.id;
+        CB.classList.toggle("on", on);
+        CB.setAttribute("aria-pressed", String(on));
+      }
       return $;
     }
     async function rotOne(y, dir) {
@@ -3597,6 +3747,21 @@
       })) && (await le(y.id), (n = n.filter((B) => B.id !== y.id)), m(), s());
     }
     async function U(y) {
+      if (y.cover) {
+        await pt(t, (g) => {
+          g.coverCustom = y.cover;
+          delete g.coverCardId;
+        });
+        coverCustomBlob = y.cover;
+        coverCardNow = null;
+      }
+      if (!y.length) {
+        await ft(t);
+        refreshCover();
+        mt();
+        D(I18N_T("Ustawiono okładkę gry."));
+        return;
+      }
       let v = n.reduce((M, $) => Math.max(M, $.order), -1) + 1,
         B = y.map((M) => ({
           id: H(),
@@ -3609,7 +3774,12 @@
           w: M.w,
           h: M.h,
         }));
-      (await ce(B), (n = n.concat(B)), m(), await ft(t), mt(), D(I18N_T("Dodano kart: {}.", B.length)));
+      (await ce(B),
+        (n = n.concat(B)),
+        m(),
+        await ft(t),
+        mt(),
+        D(I18N_T(y.cover ? "Dodano kart: {}. Ustawiono też okładkę." : "Dodano kart: {}.", B.length)));
     }
     function R() {
       let y = $t({
@@ -3705,7 +3875,7 @@
     }
     async function z(y) {
       let v = await nn(y);
-      v?.length && (await U(v));
+      v && (v.length || v.cover) && (await U(v));
     }
     async function P() {
       let y = await nt({
@@ -3763,7 +3933,7 @@
       }
     );
   }
-  var APP_VER = "2026.11.15-v14";
+  var APP_VER = "2026.11.17-v17";
   function showUpd() {
     if (document.querySelector(".upd-bar")) return;
     let ub = d(

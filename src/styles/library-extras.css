@@ -24,6 +24,7 @@
 .card-grid { position: absolute; inset: 0; overflow: auto; display: flex; padding: 8px; -webkit-overflow-scrolling: touch; }
 .card-grid-in { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-content: flex-start; margin: auto; }
 .gcard { display: block; height: auto; border-radius: 10px; user-select: none; -webkit-user-drag: none; animation: pop .16s ease-out; }
+@keyframes pop { from { opacity: .3; transform: scale(.98); } to { opacity: 1; transform: none; } }
 .gcard.tap { cursor: zoom-in; }
 @media (prefers-reduced-motion: reduce) { .gcard { animation: none; } }
 .turn-h { margin: 12px 0 6px; font-size: .9rem; color: var(--muted); font-weight: 600; }

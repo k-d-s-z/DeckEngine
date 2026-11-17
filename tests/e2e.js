@@ -100,6 +100,40 @@ const bodyText = (page) => page.evaluate(() => document.body.innerText);
     await ctx.close();
   }
 
+  // ---------------------------------------------------------------- okładka z importera PDF
+  t.section("Import PDF: okładka z pola, które nie trafia do talii");
+  {
+    const { ctx, page, errors } = await newPage(browser, { width: 1000, height: 800 });
+    await page.goto(base);
+    await page.click(".game.new");
+    await page.fill("dialog input", "Rewersy");
+    await page.click('dialog button:has-text("Utwórz")');
+    await page.waitForSelector("text=/Dodaj karty/");
+    await page.click("text=/Dodaj karty/");
+    const [fc] = await Promise.all([page.waitForEvent("filechooser"), page.click("text=PDF lub arkusz do pocięcia")]);
+    await fc.setFiles({ name: "arkusz.pdf", mimeType: "application/pdf", buffer: gridPdf() });
+    await page.waitForSelector(".imp-body", { timeout: 30000 });
+    await page.waitForTimeout(2500);
+    await page.click(".cover-pick-btn");
+    await page.locator(".overlay .cell").first().click();
+    await page.waitForTimeout(300);
+    t.ok("pole oznaczone jako okładka", (await page.locator(".overlay .cell.cover").count()) === 1);
+    t.ok("pasek stanu pokazuje wybraną okładkę", /strona 1/.test(await page.locator(".cover-status").innerText()));
+    await page.click('.imp-panel .btn:has-text("Odznacz wszystkie pola na stronie")');
+    await page.waitForTimeout(300);
+    const addBtn = page.locator(".modal .btn.primary");
+    t.ok(
+      "przy wyłączonych polach przycisk ustawia samą okładkę",
+      /ustaw okładkę/i.test(await addBtn.innerText()) && (await addBtn.isEnabled()),
+    );
+    await addBtn.click();
+    await page.waitForSelector(".cover-prev:not([hidden])", { timeout: 20000 });
+    t.ok("okładka ustawiona bez dodawania kart do talii", (await page.locator(".tile").count()) === 0);
+    t.ok("okno importu zniknęło", (await page.locator(".importer").count()) === 0);
+    t.ok("brak błędów JS", errors.length === 0, errors.join("; "));
+    await ctx.close();
+  }
+
   // ---------------------------------------------------------------- limity importu
   t.section("Limity importu: pytanie przy dużej liczbie plików, anulowanie");
   {
@@ -240,10 +274,7 @@ const bodyText = (page) => page.evaluate(() => document.body.innerText);
             };
           }),
       );
-    t.ok(
-      "domyślnie wskazana jest pierwsza karta",
-      (await page.locator(".tile").nth(0).locator(".tile-cover.on").count()) === 1,
-    );
+    t.ok("domyślnie żadna karta nie ma gwiazdki", (await page.locator(".tile-cover.on").count()) === 0);
     await page.locator(".tile-cover").nth(1).click();
     await page.waitForTimeout(500);
     t.ok(
@@ -254,7 +285,7 @@ const bodyText = (page) => page.evaluate(() => document.body.innerText);
     await page
       .locator(".cover-setting input[type=file]")
       .setInputFiles({ name: "o.png", mimeType: "image/png", buffer: png(50, 50, [250, 20, 20]) });
-    await page.waitForSelector('.cover-actions .btn:has-text("Usuń własny obraz")', {
+    await page.waitForSelector('.cover-actions .btn:has-text("Przywróć domyślną okładkę")', {
       state: "visible",
       timeout: 10000,
     });
@@ -263,20 +294,50 @@ const bodyText = (page) => page.evaluate(() => document.body.innerText);
     await page.waitForTimeout(500);
     let rec = await gameRec();
     t.ok("własny obraz zapisany w grze", rec.hasCustom && rec.hasCover, JSON.stringify(rec));
-    await page.click('.cover-actions .btn:has-text("Usuń własny obraz")');
+    await page.click('.cover-actions .btn:has-text("Przywróć domyślną okładkę")');
     await page.waitForTimeout(500);
     t.ok(
-      "usunięcie własnego obrazu wraca do wskazanej karty",
-      (await page.locator(".tile").nth(1).locator(".tile-cover.on").count()) === 1,
+      "przywrócenie domyślnej: brak gwiazdek i własnej okładki",
+      (await page.locator(".tile-cover.on").count()) === 0 && !(await gameRec()).hasCustom,
     );
-    // usunięcie wskazanej karty: okładką znów jest pierwsza karta
+    // gwiazdka zapisuje kopię: okładka zostaje po usunięciu karty
+    await page.locator(".tile-cover").nth(1).click();
+    await page.waitForTimeout(500);
     await page.locator(".tile-del").nth(1).click();
     await page.click('dialog button:has-text("Usuń")');
-    await page.waitForTimeout(600);
+    await page.waitForTimeout(800);
+    rec = await gameRec();
     t.ok(
-      "po usunięciu karty-okładki wybierana jest pierwsza karta",
-      (await page.locator(".tile").nth(0).locator(".tile-cover.on").count()) === 1,
+      "okładka zostaje po usunięciu karty, z której pochodzi",
+      rec.hasCustom && rec.hasCover && (await page.locator(".tile-cover.on").count()) === 0,
+      JSON.stringify(rec),
     );
+    // obrót okładki: karta pionowa po obrocie jest pozioma
+    await page.locator(".tile-cover").nth(0).click();
+    await page.waitForFunction(
+      () => {
+        const i = document.querySelector(".cover-prev");
+        return i && i.naturalWidth > 0;
+      },
+      null,
+      { timeout: 5000 },
+    );
+    const dims = () =>
+      page.evaluate(() => {
+        const i = document.querySelector(".cover-prev");
+        return [i.naturalWidth, i.naturalHeight];
+      });
+    const d0 = await dims();
+    await page.click('.cover-actions .btn:has-text("Obróć okładkę")');
+    await page.waitForFunction(
+      ([w, h]) => {
+        const i = document.querySelector(".cover-prev");
+        return i.naturalWidth === h && i.naturalHeight === w;
+      },
+      d0,
+      { timeout: 5000 },
+    );
+    t.ok(`obrót okładki zamienia wymiary (${d0.join("×")} → ${(await dims()).join("×")})`, d0[0] !== d0[1]);
     await page.goto(base + "#/");
     await page.waitForSelector(".game:not(.new)");
     await page.locator(".game-del").click();
@@ -316,7 +377,7 @@ const bodyText = (page) => page.evaluate(() => document.body.innerText);
     await a.page
       .locator(".cover-setting input[type=file]")
       .setInputFiles({ name: "o.png", mimeType: "image/png", buffer: png(50, 50, [250, 20, 20]) });
-    await a.page.waitForSelector('.cover-actions .btn:has-text("Usuń własny obraz")', {
+    await a.page.waitForSelector('.cover-actions .btn:has-text("Przywróć domyślną okładkę")', {
       state: "visible",
       timeout: 10000,
     });
@@ -361,7 +422,7 @@ const bodyText = (page) => page.evaluate(() => document.body.innerText);
     await b.page.waitForSelector(".cover-setting");
     t.ok(
       "własny obraz okładki przeżył eksport/import",
-      await b.page.locator('.cover-actions .btn:has-text("Usuń własny obraz")').isVisible(),
+      await b.page.locator('.cover-actions .btn:has-text("Przywróć domyślną okładkę")').isVisible(),
     );
     // wersja angielska
     await b.page.evaluate(() => localStorage.setItem("lang", "en"));
