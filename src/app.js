@@ -181,6 +181,7 @@
         .toLowerCase() || "gra",
     mn = {
       back: ["M15 18l-6-6 6-6"],
+      home: ["M3 11l9-8 9 8", "M5 9.5V21h14V9.5", "M10 21v-6h4v6"],
       undo: ["M9 14L4 9l5-5", "M4 9h10.5a5.5 5.5 0 010 11H11"],
       shuffle: ["M16 3h5v5", "M4 20L21 3", "M21 16v5h-5", "M15 15l6 6", "M4 4l5 5"],
       draw: ["M12 2L2 7l10 5 10-5-10-5z", "M2 17l10 5 10-5", "M2 12l10 5 10-5"],
@@ -922,7 +923,7 @@
           ...(c.coverCustom ? { coverFile: coverPath(c, n) } : {}),
         }));
     }
-    let i = { format: Ie, version: Re, app: "karty-automy", exportedAt: new Date().toISOString(), games: a };
+    let i = { format: Ie, version: Re, app: "DeckEngine", exportedAt: new Date().toISOString(), games: a };
     return (n.unshift({ name: "manifest.json", data: JSON.stringify(i, null, 2) }), Ee(n));
   }
   async function $e(t, { onConflict: e, onProgress: n } = {}) {
@@ -2680,7 +2681,7 @@
         d(
           "header",
           { class: "topbar" },
-          d("h1", {}, I18N_T("Karty automy")),
+          d("h1", {}, "DeckEngine"),
           d("span", { class: "grow" }),
           a,
           o,
@@ -2780,7 +2781,7 @@
           t.map((g) => g.id),
           (g) => p.set(null, g),
         );
-        (p.close(), (await Tt(m, `karty-automy-${St()}.zip`)) && lsSet("lastBackup", St()), Bt());
+        (p.close(), (await Tt(m, `DeckEngine-${St()}.zip`)) && lsSet("lastBackup", St()), Bt());
       } catch (m) {
         (p.close(), console.error(m), D(I18N_T("Eksport nie powiódł się: ") + (m?.message || m), 6e3));
       }
@@ -2902,7 +2903,7 @@
         },
         f,
       ),
-      A = G("back", I18N_T("Wróć do biblioteki"), on),
+      A = G("home", I18N_T("Wróć do biblioteki"), on),
       U = d("nav", { class: "bar", "aria-label": I18N_T("Sterowanie talią") }, A, m, p, g, w),
       R = d("div", { class: "view play" }, u, U);
     rt.append(R);
@@ -3933,7 +3934,7 @@
       }
     );
   }
-  var APP_VER = "2026.11.17-v17";
+  var APP_VER = "2026.11.20-v18";
   function showUpd() {
     if (document.querySelector(".upd-bar")) return;
     let ub = d(
