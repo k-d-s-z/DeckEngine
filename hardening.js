@@ -476,6 +476,36 @@ const toastTexts = async (page, ms = 2500) => {
     await c.ctx.close();
   }
 
+  t.section("CSP i globalna obsługa błędów");
+  {
+    const c = await freshGame();
+    const csp = await c.page.evaluate(
+      () => document.querySelector('meta[http-equiv="Content-Security-Policy"]')?.content || "",
+    );
+    t.ok("jest CSP bez zewnętrznych źródeł", /default-src 'none'/.test(csp) && !/https?:/.test(csp), csp);
+    await c.page.evaluate(() => {
+      window.__cspViol = [];
+      document.addEventListener("securitypolicyviolation", (e) => window.__cspViol.push(e.violatedDirective));
+    });
+    await pick(c.page, "PDF lub arkusz do pocięcia", {
+      name: "ok.pdf",
+      mimeType: "application/pdf",
+      buffer: multiPagePdf(2),
+    });
+    await c.page.waitForSelector(".importer", { timeout: 20000 });
+    await c.page.waitForTimeout(1500);
+    const viol = await c.page.evaluate(() => window.__cspViol);
+    t.ok("import PDF działa bez naruszeń CSP", viol.length === 0, viol.join(","));
+    t.ok("okno importu się pokazało pod CSP", (await c.page.locator(".importer").count()) === 1);
+    await c.page.evaluate(() => {
+      Promise.reject(new Error("test-blad-async"));
+    });
+    const txt = await toastTexts(c.page, 1500);
+    t.ok("nieobsłużony błąd async pokazuje komunikat", /test-blad-async/.test(txt), txt);
+    t.ok("aplikacja nadal reaguje", await alive(c.page));
+    await c.ctx.close();
+  }
+
   await browser.close();
   server.close();
   process.exit(t.summary() ? 0 : 1);
