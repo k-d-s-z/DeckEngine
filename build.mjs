@@ -40,7 +40,6 @@ if (process.argv.includes("--min")) {
 app = app.replace(/\n+$/, "");
 
 const html = text("template.html")
-  .replace("@@FAVICON@@", b64("assets", "favicon.svg"))
   .replace("@@STYLES@@", () => css)
   .replace("@@PDFJS_MAIN@@", b64("vendor", "pdfjs.main.js"))
   .replace("@@PDFJS_WORKER@@", b64("vendor", "pdfjs.worker.js"))

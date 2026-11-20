@@ -1,0 +1,32 @@
+/* ---------- import z arkusza ---------- */
+.modal { position: fixed; inset: 0; z-index: 50; background: var(--bg); display: flex; flex-direction: column; }
+.importer h2 { font-size: 1rem; }
+.imp-body { flex: 1; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+.imp-stage { position: relative; min-height: 0; display: grid; place-items: center; background: #0b0c10; overflow: hidden; }
+.sheet-wrap { position: relative; box-shadow: 0 2px 18px rgba(0, 0, 0, .6); background: #fff; }
+.sheet-wrap.skipped { opacity: .35; }
+.page-canvas, .overlay { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.overlay .cell rect { fill: rgba(255, 45, 85, .08); stroke: var(--cut); stroke-width: 5; vector-effect: non-scaling-stroke; cursor: pointer; }
+.overlay .cell text { fill: #fff; stroke: #2a1d5c; stroke-width: 4px; paint-order: stroke; font-weight: 700; pointer-events: none; }
+.overlay .cell.off rect { fill: rgba(0, 0, 0, .45); stroke: #888; stroke-dasharray: 8 6; }
+.overlay .cell.off text { fill: #ccc; stroke: #000; }
+.stage-spin { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; color: var(--muted); }
+.imp-panel { background: var(--panel); border-top: 1px solid var(--line); padding: 10px 14px calc(12px + env(safe-area-inset-bottom)); max-height: 44dvh; overflow: auto; }
+.pager { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.page-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .9rem; }
+.ctl { display: grid; grid-template-columns: 9.5em 1fr 3.6em; align-items: center; gap: 8px; padding: 3px 0; font-size: .9rem; }
+.ctl input[type=range] { width: 100%; accent-color: var(--accent); min-height: 28px; }
+.adv { margin: 6px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.adv summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; font-size: .9rem; list-style: none; }
+.adv summary::-webkit-details-marker { display: none; }
+.adv summary::after { content: "+"; margin-left: auto; padding-right: 4px; font-size: 1.3rem; color: var(--muted); }
+.adv[open] summary::after { content: "\2212"; }
+.adv[open] { padding-bottom: 6px; }
+.ctl output { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.hint { color: var(--muted); font-size: .85rem; margin: 8px 0 0; }
+@media (min-width: 900px) {
+  .imp-body { grid-template-rows: none; grid-template-columns: minmax(0, 1fr) 340px; }
+  .imp-panel { max-height: none; border-top: 0; border-left: 1px solid var(--line); }
+}
+
+

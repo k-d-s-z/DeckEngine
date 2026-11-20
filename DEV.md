@@ -12,7 +12,7 @@ a `build.mjs` składa je w jeden samodzielny plik (działa offline, bez zależno
 | `src/styles/*.css` | style; kolejność sklejania w `src/styles/ORDER.txt` |
 | `src/template.html` | szkielet HTML z znacznikami `@@…@@` |
 | `src/vendor/` | PDF.js (główny plik i worker) |
-| `src/fonts/`, `src/assets/` | czcionka monospace (DejaVu Sans Mono, podzbiór) i favicon |
+| `src/fonts/` | czcionka monospace (DejaVu Sans Mono, podzbiór) |
 | `sw.js`, `manifest.webmanifest`, `icons/` | PWA – kopiowane bez zmian |
 | `tests/` | testy end-to-end (Playwright) |
 
