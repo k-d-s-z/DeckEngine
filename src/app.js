@@ -3934,7 +3934,7 @@
       }
     );
   }
-  var APP_VER = "2026.11.20-v18";
+  var APP_VER = "2026.11.20-v19";
   function showUpd() {
     if (document.querySelector(".upd-bar")) return;
     let ub = d(
