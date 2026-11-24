@@ -226,20 +226,7 @@
   function G(t, e, n, a = "") {
     return d("button", { class: "icon-btn " + a, type: "button", "aria-label": e, title: e, html: W(t), onclick: n });
   }
-  function D(t, e = 2600, k) {
-    k =
-      k ||
-      (/^(Nie uda|B\u0142\u0105d|Eksport nie|Import nie|Could not|Error|Export failed|Import failed)/.test(t)
-        ? "error"
-        : /^(Nie znaleziono|\u017Badna|Pomini\u0119to|Koniec talii|Wykryto|Dopasowano|Game not found|No images|No PDF|No card|Skipped|End of deck|Detected|Margins were)/.test(
-              t,
-            )
-          ? "warn"
-          : /^(Dodano|Obr\xF3cono|Nowa talia|Talia przetasowana|Partia zresetowana|Cards added|Rotated|New deck|Deck reshuffled|Game reset)/.test(
-                t,
-              )
-            ? "ok"
-            : "");
+  function D(t, e = 2600, k = "") {
     e = k === "error" ? Math.max(e, 7e3) : k === "warn" ? Math.max(e, 4500) : e;
     let n = It("#toasts"),
       a,
@@ -474,8 +461,7 @@
       a = d("a", { href: n, download: e });
     return (document.body.append(a), a.click(), a.remove(), setTimeout(() => URL.revokeObjectURL(n), 6e4), !0);
   }
-  function xe(t, e) {
-    if (e) return Math.floor(e() * t);
+  function xe(t) {
     let n = Math.floor(4294967296 / t) * t,
       a = new Uint32Array(1),
       o;
@@ -483,10 +469,10 @@
     while (o >= n);
     return o % t;
   }
-  function ht(t, e) {
+  function ht(t) {
     let n = t.slice();
     for (let a = n.length - 1; a > 0; a--) {
-      let o = xe(a + 1, e);
+      let o = xe(a + 1);
       [n[a], n[o]] = [n[o], n[a]];
     }
     return n;
@@ -500,10 +486,10 @@
   var EDGE_TRIM_MAX = 4,
     edgeTrimOf = (g) => (g.edgeTrim == null ? 1 : Math.max(0, Math.min(EDGE_TRIM_MAX, Math.round(+g.edgeTrim) || 0)));
   var Ft = (t) => t.slice(0, t.lastIndexOf("~"));
-  function ze(t, e, n) {
-    return { gameId: t, draw: ht(ve(e), n), discard: [], shown: [], dg: [], undo: [], updatedAt: Date.now() };
+  function ze(t, e) {
+    return { gameId: t, draw: ht(ve(e)), discard: [], shown: [], dg: [], undo: [], updatedAt: Date.now() };
   }
-  function Me(t, e, n) {
+  function Me(t, e) {
     Array.isArray(t.shown) || ((t.shown = t.discard.length ? [t.discard.pop()] : []), (t.undo = []));
     let a = ve(e),
       o = new Set(a),
@@ -513,7 +499,7 @@
       i = new Set([...s, ...r, ...h0]),
       c = a.filter((l) => !i.has(l)),
       u = s.length !== t.draw.length || r.length !== t.discard.length || h0.length !== t.shown.length || c.length > 0;
-    for (let l of c) s.splice(xe(s.length + 1, n), 0, l);
+    for (let l of c) s.splice(xe(s.length + 1), 0, l);
     return (
       (t.draw = s),
       (t.discard = r),
@@ -561,14 +547,14 @@
         !0)
       : !1;
   }
-  function Se(t, e) {
-    (gt(t), (t.draw = ht(t.draw.concat(t.discard, t.shown), e)), (t.discard = []), (t.shown = []), (t.dg = []));
+  function Se(t) {
+    (gt(t), (t.draw = ht(t.draw.concat(t.discard, t.shown))), (t.discard = []), (t.shown = []), (t.dg = []));
   }
-  function Be(t, e) {
-    (gt(t), (t.draw = ht(t.draw, e)));
+  function Be(t) {
+    (gt(t), (t.draw = ht(t.draw)));
   }
-  function Ae(t, e) {
-    (gt(t), (t.draw = ht(t.discard, e).concat(t.draw)), (t.discard = []), (t.dg = []));
+  function Ae(t) {
+    (gt(t), (t.draw = ht(t.discard).concat(t.draw)), (t.discard = []), (t.dg = []));
   }
   var Le = new TextEncoder(),
     hn = new TextDecoder(),
@@ -1787,7 +1773,7 @@
       let t = window.__PDFJS_EMBED,
         e = t ? Ye(t.main) : new URL("lib/pdf.min.mjs", document.baseURI).href,
         n = t ? Ye(t.worker) : new URL("lib/pdf.worker.min.mjs", document.baseURI).href;
-      Jt = import(e).then((a) => ((a.GlobalWorkerOptions.workerSrc = n), a));
+      Jt = import(e).then((a) => ((a.GlobalWorkerOptions.workerSrc = n), URL.revokeObjectURL(e), a));
     }
     return Jt;
   }
@@ -1993,11 +1979,12 @@
         a.forEach((k) => k.destroy?.()),
         h?.abort
           ? D(I18N_T("Import przerwany."))
-          : D(I18N_T("Nie udało się otworzyć pliku: ") + (h?.message || h), 6e3),
+          : D(I18N_T("Nie udało się otworzyć pliku: ") + (h?.message || h), 6e3, "error"),
         null
       );
     }
-    if ((n.close(), !o.length)) return (e.remove(), D(I18N_T("Nie znaleziono stron PDF ani obrazów.")), null);
+    if ((n.close(), !o.length))
+      return (e.remove(), D(I18N_T("Nie znaleziono stron PDF ani obrazów."), 2600, "warn"), null);
     {
       let h = _(I18N_T("Analizuję strony…"), !0);
       try {
@@ -2103,6 +2090,7 @@
             "Nie wykryto pewnych granic cięcia. Ustaw marginesy suwakami; dotychczasowe wartości pozostają bez zmian.",
           ),
           6000,
+          "warn",
         );
         return;
       }
@@ -2112,6 +2100,7 @@
       D(
         I18N_T("Dopasowano marginesy do linii cięcia. Sprawdź podgląd; liczba kolumn i wierszy pozostaje bez zmian."),
         5000,
+        "warn",
       );
     }
     let coverCell = null,
@@ -2272,7 +2261,8 @@
         x = await o[h].render();
       } catch (j) {
         (console.error(j),
-          k === p && ((z.hidden = !0), D(I18N_T("Nie udało się wyświetlić strony: ") + (j?.message || j), 5e3)));
+          k === p &&
+            ((z.hidden = !0), D(I18N_T("Nie udało się wyświetlić strony: ") + (j?.message || j), 5e3, "error")));
         return;
       }
       k === p &&
@@ -2297,7 +2287,11 @@
           h.excluded.clear(),
           it(),
           q(),
-          D(I18N_T("Wykryto siatkę {}×{}. Sprawdź i w razie potrzeby popraw.", j.params.cols, j.params.rows), 4e3),
+          D(
+            I18N_T("Wykryto siatkę {}×{}. Sprawdź i w razie potrzeby popraw.", j.params.cols, j.params.rows),
+            4e3,
+            "warn",
+          ),
           !0)
         : (D(
             x
@@ -2306,6 +2300,7 @@
                   "Nie udało się wykryć układu kart. Ustaw liczbę kolumn i wierszy suwakami – siatka sama dopasuje się do krawędzi.",
                 ),
             7e3,
+            "error",
           ),
           !1);
     }
@@ -2401,22 +2396,26 @@
           try {
             let k = await ln();
             if (!k.length && !k.cover) {
-              (D(I18N_T("Żadna karta nie została wycięta (wszystkie pola puste lub wyłączone).")), (A.disabled = !1));
+              (D(I18N_T("Żadna karta nie została wycięta (wszystkie pola puste lub wyłączone)."), 2600, "warn"),
+                (A.disabled = !1));
               return;
             }
             (oe(), h(k));
           } catch (k) {
-            (console.error(k), D(I18N_T("Błąd podczas wycinania: ") + (k?.message || k), 6e3), (A.disabled = !1));
+            (console.error(k),
+              D(I18N_T("Błąd podczas wycinania: ") + (k?.message || k), 6e3, "error"),
+              (A.disabled = !1));
           }
         }),
         Dt(l).then(() => {
-          (c && !u && D(I18N_T("Pominięto puste strony: {}.", c), 3500),
+          (c && !u && D(I18N_T("Pominięto puste strony: {}.", c), 3500, "warn"),
             r ||
               D(
                 I18N_T(
                   "Nie wykryto układu kart automatycznie. Ustaw liczbę kolumn i wierszy suwakami – siatka sama dopasuje się do krawędzi.",
                 ),
                 8e3,
+                "warn",
               ));
         }));
     });
@@ -2756,7 +2755,7 @@
         D(I18N_T("Gra usunięta."), 3e3);
       } catch (err) {
         console.error(err);
-        D(I18N_T("Nie udało się usunąć gry."), 4e3);
+        D(I18N_T("Nie udało się usunąć gry."), 4e3, "error");
       }
       Bt();
     }
@@ -2778,7 +2777,7 @@
         );
         (p.close(), (await Tt(m, `DeckEngine-${St()}.zip`)) && lsSet("lastBackup", St()), Bt());
       } catch (m) {
-        (p.close(), console.error(m), D(I18N_T("Eksport nie powiódł się: ") + (m?.message || m), 6e3));
+        (p.close(), console.error(m), D(I18N_T("Eksport nie powiódł się: ") + (m?.message || m), 6e3, "error"));
       }
     }
     async function f() {
@@ -2816,17 +2815,18 @@
           (w ? I18N_T("Zaimportowano gry: {} (kart: {}).", w, g.cards) : I18N_T("Nic nie zaimportowano.")) +
             (g.failed ? " " + I18N_T("Nie udało się zaimportować gier: {}.", g.failed) : ""),
           g.failed ? 8e3 : 4e3,
+          w ? (g.failed ? "warn" : "ok") : g.failed ? "warn" : "",
         ),
           Bt());
       } catch (g) {
-        (m.close(), console.error(g), D(I18N_T("Import nie powiódł się: ") + (g?.message || g), 7e3));
+        (m.close(), console.error(g), D(I18N_T("Import nie powiódł się: ") + (g?.message || g), 7e3, "error"));
       }
     }
     return () => e.forEach((p) => URL.revokeObjectURL(p));
   }
   async function On(t) {
     let e = await tt(t);
-    if (!e) return (D(I18N_T("Nie znaleziono gry.")), K("#/"), null);
+    if (!e) return (D(I18N_T("Nie znaleziono gry."), 2600, "warn"), K("#/"), null);
     let n = await et(t);
     if (!n.some((b) => b.copies > 0))
       return (
@@ -2855,7 +2855,8 @@
       s = () =>
         pe(o).catch((b) => {
           console.error(b);
-          saveWarned || ((saveWarned = !0), D(I18N_T("Nie udało się zapisać stanu partii (brak miejsca?)."), 6e3));
+          saveWarned ||
+            ((saveWarned = !0), D(I18N_T("Nie udało się zapisać stanu partii (brak miejsca?)."), 6e3, "error"));
         });
     s();
     let r = new Map(),
@@ -3085,9 +3086,9 @@
             while (o.shown.length < DN && o.draw.length) o.shown.push(o.draw.pop());
             s();
             L(1);
-            D(I18N_T("Nowa talia z odrzuconych kart."));
+            D(I18N_T("Nowa talia z odrzuconych kart."), 2600, "ok");
           }
-        } else D(I18N_T("Koniec talii."));
+        } else D(I18N_T("Koniec talii."), 2600, "warn");
       }
     }
     function P() {
@@ -3133,7 +3134,7 @@
         S === "all" ? Se(o) : S === "draw" ? Be(o) : S === "under" && Ae(o),
         s(),
         L(),
-        D(I18N_T("Talia przetasowana (cofnięcie: ikona strzałki).")));
+        D(I18N_T("Talia przetasowana (cofnięcie: ikona strzałki)."), 2600, "ok"));
     }
     function v() {
       let Z,
@@ -3154,6 +3155,7 @@
                   src: URL.createObjectURL(V.thumb || V.blob),
                   alt: V.name || "",
                   onload: (At) => URL.revokeObjectURL(At.target.src),
+                  onerror: (At) => URL.revokeObjectURL(At.target.src),
                 })
               : null,
             d("span", { class: "thumb-n" }, String(num)),
@@ -3312,7 +3314,7 @@
   }
   async function In(t) {
     let e = await tt(t);
-    if (!e) return (D(I18N_T("Nie znaleziono gry.")), K("#/"), null);
+    if (!e) return (D(I18N_T("Nie znaleziono gry."), 2600, "warn"), K("#/"), null);
     let n = await et(t),
       a = new Map(),
       o = (y) => {
@@ -3321,13 +3323,15 @@
       },
       s = Dn(() => ft(t).catch(console.error), 300),
       r = d("input", { class: "title-input", value: e.name, maxlength: 120, "aria-label": I18N_T("Nazwa gry") });
-    r.addEventListener("change", async () => {
+    let saveName = async () => {
       let y = r.value.trim() || I18N_T("Bez nazwy");
       ((r.value = y),
         await pt(t, (v) => {
           v.name = y;
         }));
-    });
+    };
+    r.addEventListener("change", saveName);
+    window.addEventListener("hashchange", saveName, { once: !0 });
     let i = d(
       "textarea",
       {
@@ -3386,7 +3390,7 @@
               s();
             } catch (err) {
               console.error(err);
-              D(I18N_T("Nie udało się obrócić okładki."), 4e3);
+              D(I18N_T("Nie udało się obrócić okładki."), 4e3, "error");
             }
           },
         },
@@ -3401,7 +3405,8 @@
         onFiles: async (files) => {
           let f = files[0];
           if (!f) return;
-          if (f.size > 60 * 1024 * 1024) return void D(I18N_T("Plik graficzny jest zbyt duży (limit 60 MB)."), 4e3);
+          if (f.size > 60 * 1024 * 1024)
+            return void D(I18N_T("Plik graficzny jest zbyt duży (limit 60 MB)."), 4e3, "error");
           try {
             let { thumb } = await Oe(new Blob([f], { type: f.type }));
             await pt(t, (g) => {
@@ -3414,7 +3419,7 @@
             s();
           } catch (err) {
             console.error(err);
-            D(I18N_T("Nie udało się wczytać obrazu okładki."), 4e3);
+            D(I18N_T("Nie udało się wczytać obrazu okładki."), 4e3, "error");
           }
         },
       }),
@@ -3624,7 +3629,7 @@
               s();
             } catch (E) {
               console.error(E);
-              D(I18N_T("Nie udało się obrócić karty."), 4e3);
+              D(I18N_T("Nie udało się obrócić karty."), 4e3, "error");
             }
           },
           "small tile-rot",
@@ -3758,13 +3763,13 @@
         pr.close();
         m();
         s();
-        D(I18N_T("Obrócono karty: {}.", n.length));
+        D(I18N_T("Obrócono karty: {}.", n.length), 2600, "ok");
       } catch (E) {
         pr.close();
         console.error(E);
         m();
         s();
-        D(I18N_T("Błąd podczas obracania: ") + (E?.message || E), 6e3);
+        D(I18N_T("Błąd podczas obracania: ") + (E?.message || E), 6e3, "error");
       }
     }
     function w() {
@@ -3814,7 +3819,7 @@
         m(),
         await ft(t),
         mt(),
-        D(I18N_T(y.cover ? "Dodano kart: {}. Ustawiono też okładkę." : "Dodano kart: {}.", B.length)));
+        D(I18N_T(y.cover ? "Dodano kart: {}. Ustawiono też okładkę." : "Dodano kart: {}.", B.length), 2600, "ok"));
     }
     function R() {
       let y = $t({
@@ -3873,7 +3878,7 @@
         let tb = M.reduce((q, b) => q + (b.size || 0), 0);
         if (M.length > 3000 || tb > 1.5e9) {
           v.close();
-          D(I18N_T("Za dużo plików do zaimportowania naraz (limit {} plików, {} GB).", 3000, 1.5), 6e3);
+          D(I18N_T("Za dużo plików do zaimportowania naraz (limit {} plików, {} GB).", 3000, 1.5), 6e3, "error");
           return;
         }
         if (
@@ -3902,10 +3907,10 @@
             ? D(I18N_T("Import przerwany."))
             : $.length
               ? await U($)
-              : D(I18N_T("Nie znaleziono obrazów do dodania.")),
-          B && D(I18N_T("Nie udało się wczytać plików: {}.", B), 5e3));
+              : D(I18N_T("Nie znaleziono obrazów do dodania."), 2600, "warn"),
+          B && D(I18N_T("Nie udało się wczytać plików: {}.", B), 5e3, "error"));
       } catch (M) {
-        (v.close(), console.error(M), D(I18N_T("Błąd: ") + (M?.message || M), 6e3));
+        (v.close(), console.error(M), D(I18N_T("Błąd: ") + (M?.message || M), 6e3, "error"));
       }
     }
     async function z(y) {
@@ -3934,9 +3939,10 @@
           let B = await Wt([t], (M) => v.set(null, M));
           (v.close(), (await Tt(B, `${ye(r.value)}-${St()}.zip`)) && lsSet("lastBackup", St()));
         } catch (B) {
-          (v.close(), console.error(B), D(I18N_T("Eksport nie powiódł się: ") + (B?.message || B), 6e3));
+          (v.close(), console.error(B), D(I18N_T("Eksport nie powiódł się: ") + (B?.message || B), 6e3, "error"));
         }
-      } else if (y === "reset") (await fe(t), D(I18N_T("Partia zresetowana – talia będzie przetasowana od nowa.")));
+      } else if (y === "reset")
+        (await fe(t), D(I18N_T("Partia zresetowana – talia będzie przetasowana od nowa."), 2600, "ok"));
       else if (y === "delete") {
         if (
           !(await nt({
@@ -3968,7 +3974,7 @@
       }
     );
   }
-  var APP_VER = "2026.11.20-v21";
+  var APP_VER = "2026.11.20-v22";
   function showUpd() {
     if (document.querySelector(".upd-bar")) return;
     let ub = d(
