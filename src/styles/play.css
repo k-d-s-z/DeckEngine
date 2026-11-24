@@ -21,6 +21,13 @@
 .draw-btn:active { transform: scale(.95); }
 .draw-btn.empty { background: var(--panel2); color: var(--accent); box-shadow: inset 0 0 0 3px var(--accent); }
 .draw-btn .badge { top: -2px; right: -2px; }
+.badge.bump,
+.hud-read b.bump { animation: bump .35s ease-out; }
+@keyframes bump { from { transform: scale(1.5); } to { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .badge.bump,
+  .hud-read b.bump { animation: none; }
+}
 @media (orientation: landscape) and (max-height: 520px) {
   .play { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr); }
   .bar { flex-direction: column; padding: 8px 8px 8px 8px; border-top: 0; border-left: 1px solid var(--line); padding-right: calc(8px + env(safe-area-inset-right)); }

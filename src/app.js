@@ -2907,7 +2907,12 @@
       U = d("nav", { class: "bar", "aria-label": I18N_T("Sterowanie talią") }, A, m, p, g, w),
       R = d("div", { class: "view play" }, u, U);
     rt.append(R);
-    let cur = [];
+    let cur = [],
+      lastDeck = null,
+      lastDisc = null,
+      bump = (el) => {
+        (el.classList.remove("bump"), void el.offsetWidth, el.classList.add("bump"));
+      };
     function lay() {
       let g = u.firstChild;
       if (!g || !g.classList || !g.classList.contains("card-grid") || !cur.length) return;
@@ -2936,12 +2941,12 @@
       inn.style.width = Math.floor(cols * cw + (cols - 1) * gp) + "px";
       for (let im of inn.children) im.style.width = Math.floor(cw) + "px";
     }
-    function L() {
+    function L(dp) {
       let ids = (c ? [c] : o.shown).filter((b) => a.get(Ft(b)));
       u.replaceChildren();
       cur = ids.map((b) => a.get(Ft(b)));
       if (ids.length) {
-        let els = ids.map((b) => {
+        let els = ids.map((b, k) => {
           let S = a.get(Ft(b)),
             im = d(
               "div",
@@ -2954,6 +2959,7 @@
                 decoding: "async",
               }),
             );
+          dp && (im.classList.add("deal"), k > 0 && (im.style.animationDelay = 60 * k + "ms"));
           !c &&
             ids.length > 1 &&
             (im.classList.add("tap"),
@@ -2985,14 +2991,16 @@
           ),
         );
       }
+      let hudDeck = d("b", {}, String(o.draw.length)),
+        hudDisc = d("b", {}, String(o.discard.length));
       u.append(
         d(
           "div",
           { class: "hud-read", "aria-hidden": "true" },
           d("span", { class: "hud-k" }, I18N_T("TALIA")),
-          d("b", {}, String(o.draw.length)),
+          hudDeck,
           d("span", { class: "hud-k" }, I18N_T("ODRZUCONE")),
-          d("b", {}, String(o.discard.length)),
+          hudDisc,
           d(
             "div",
             { class: "hud-bar" },
@@ -3011,7 +3019,14 @@
         (l.textContent = o.draw.length),
         (f.textContent = o.discard.length),
         (m.disabled = !o.undo.length),
-        p.classList.toggle("empty", o.draw.length === 0));
+        p.classList.toggle("empty", o.draw.length === 0),
+        lastDeck !== null &&
+          (l.textContent !== lastDeck && bump(l),
+          f.textContent !== lastDisc && bump(f),
+          hudDeck.textContent !== lastDeck && bump(hudDeck),
+          hudDisc.textContent !== lastDisc && bump(hudDisc)),
+        (lastDeck = l.textContent),
+        (lastDisc = f.textContent));
     }
     let ask = (ti, tx) =>
       nt({
@@ -3024,6 +3039,7 @@
       });
     async function z() {
       c = null;
+      let reshuffled = null;
       if (!o.draw.length) {
         if (
           await ask(
@@ -3034,14 +3050,15 @@
           RS(o);
           je(o, DN, !0);
           s();
+          reshuffled = 1;
         }
-        L();
+        L(reshuffled);
         return;
       }
       let had = o.draw.length;
       je(o, DN);
       s();
-      L();
+      L(1);
       if (had < DN) {
         if (o.discard.length) {
           if (
@@ -3058,14 +3075,14 @@
             Ae(o);
             while (o.shown.length < DN && o.draw.length) o.shown.push(o.draw.pop());
             s();
-            L();
+            L(1);
             D(I18N_T("Nowa talia z odrzuconych kart."));
           }
         } else D(I18N_T("Koniec talii."));
       }
     }
     function P() {
-      ((c = null), Ue(o) && (s(), L()));
+      ((c = null), Ue(o) && (s(), L(1)));
     }
     async function y(b) {
       let S = await nt({
@@ -3934,7 +3951,7 @@
       }
     );
   }
-  var APP_VER = "2026.11.20-v19";
+  var APP_VER = "2026.11.20-v20";
   function showUpd() {
     if (document.querySelector(".upd-bar")) return;
     let ub = d(
