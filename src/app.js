@@ -141,6 +141,9 @@
   var It = (t, e = document) => e.querySelector(t);
   function d(t, e = {}, ...n) {
     let a = document.createElement(t);
+    // Osłona przed wstrzyknięciem HTML: html: przyjmuje tylko statyczne SVG z W() (nuce z danymi idą przez tekst).
+    if (e != null && e.html != null && (typeof e.html != "string" || !e.html.startsWith("<svg ")))
+      throw new Error("d(): w html: przekazuj tylko statyczne SVG z W()");
     for (let [o, s] of Object.entries(e || {}))
       s == null ||
         s === !1 ||
@@ -1112,7 +1115,7 @@
         l = 0,
         f = 0,
         p = 0;
-      for (; i; ) {
+      for (; i;) {
         let m = o[--i],
           g = m % e,
           w = (m - g) / e;
@@ -1490,7 +1493,7 @@
         scores[p] = best / (hi - lo) > 0.48 ? total / (hi - lo) : 0;
       }
       let peaks = [];
-      for (let p = 0; p < size; ) {
+      for (let p = 0; p < size;) {
         if (scores[p] < 0.48) {
           p++;
           continue;
@@ -1602,7 +1605,7 @@
         sc[p] = c / total;
       }
       const out = [];
-      for (let p = from; p < to; ) {
+      for (let p = from; p < to;) {
         if (sc[p] < 0.3) {
           p++;
           continue;
@@ -2678,15 +2681,7 @@
       i = d(
         "div",
         { class: "view library" },
-        d(
-          "header",
-          { class: "topbar" },
-          d("h1", {}, "DeckEngine"),
-          d("span", { class: "grow" }),
-          a,
-          o,
-          langSwitch(),
-        ),
+        d("header", { class: "topbar" }, d("h1", {}, "DeckEngine"), d("span", { class: "grow" }), a, o, langSwitch()),
         d(
           "main",
           { class: "scroll" },
@@ -2963,10 +2958,16 @@
           !c &&
             ids.length > 1 &&
             (im.classList.add("tap"),
+            (im.tabIndex = 0),
+            im.setAttribute("role", "button"),
+            im.setAttribute("aria-label", S.name || I18N_T("Karta")),
             im.addEventListener("click", (ev) => {
               ev.stopPropagation();
               c = b;
               L();
+            }),
+            im.addEventListener("keydown", (ev) => {
+              (ev.key === "Enter" || ev.key === " ") && (ev.preventDefault(), ev.stopPropagation(), (c = b), L());
             }));
           return im;
         });
@@ -3037,7 +3038,15 @@
           { label: I18N_T("Nie"), value: null, kind: "ghost" },
         ],
       });
-    async function z() {
+    let zBusy = !1;
+    function z() {
+      if (zBusy) return;
+      zBusy = !0;
+      Promise.resolve(zGo()).finally(() => {
+        zBusy = !1;
+      });
+    }
+    async function zGo() {
       c = null;
       let reshuffled = null;
       if (!o.draw.length) {
@@ -3084,7 +3093,15 @@
     function P() {
       ((c = null), Ue(o) && (s(), L(1)));
     }
-    async function y(b) {
+    let yBusy = !1;
+    function y(b) {
+      if (yBusy) return;
+      yBusy = !0;
+      Promise.resolve(yGo(b)).finally(() => {
+        yBusy = !1;
+      });
+    }
+    async function yGo(b) {
       let S = await nt({
         sheet: !0,
         title: b ? I18N_T("Talia wyczerpana") : I18N_T("Tasowanie"),
@@ -3951,7 +3968,7 @@
       }
     );
   }
-  var APP_VER = "2026.11.20-v20";
+  var APP_VER = "2026.11.20-v21";
   function showUpd() {
     if (document.querySelector(".upd-bar")) return;
     let ub = d(

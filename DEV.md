@@ -36,6 +36,8 @@ npm run build:min      # wersja z usuniętymi białymi znakami (opcjonalnie)
   `src/app.js` – w pliku jest wiele takich nazw i łatwo o kolizję. Używaj dłuższych (`updateBar`, `hudRead`).
 - Przy wydaniu zmień **obie** wartości: `APP_VER` w `src/app.js` i `VER` w `sw.js`
   (inaczej telefony mogą trzymać starą kopię powłoki).
+- Zmiany w `src/` wprowadzaj przez gita/PR, nie przez „Add files via upload" –
+  tak łatwo pominąć `index.html` albo uciąć plik.
 - Przed wgraniem na GitHub Pages: `npm test`, potem commit `index.html` razem ze źródłami.
 
 ## Co sprawdzają testy
@@ -61,3 +63,10 @@ i uszkodzony PDF.
 | Czas | otwarcie PDF 60 s, render jednej strony 60 s |
 
 Testy nie zastępują próby na prawdziwym telefonie (instalacja PWA, blokada orientacji, Wake Lock).
+
+## CI
+
+`.github/workflows/ci.yml` uruchamia się na każdy PR i push do `main`: sprawdza
+formatowanie `src/app.js` (prettier), robi pełny `npm test` (Playwright + Chromium są
+instalowane w runnerze przez `--with-deps`) i pilnuje, żeby zakomitowany `index.html`
+był aktualny względem `src/` (`git diff --exit-code index.html`).

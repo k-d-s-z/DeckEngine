@@ -39,10 +39,11 @@ if (process.argv.includes("--min")) {
 }
 app = app.replace(/\n+$/, "");
 
+// Funkcje zamiast stringów: znaki specjalne (np. `$&`) w podmienianym tekście nie mają znaczenia.
 const html = text("template.html")
   .replace("@@STYLES@@", () => css)
-  .replace("@@PDFJS_MAIN@@", b64("vendor", "pdfjs.main.js"))
-  .replace("@@PDFJS_WORKER@@", b64("vendor", "pdfjs.worker.js"))
+  .replace("@@PDFJS_MAIN@@", () => b64("vendor", "pdfjs.main.js"))
+  .replace("@@PDFJS_WORKER@@", () => b64("vendor", "pdfjs.worker.js"))
   .replace("@@APP@@", () => app);
 
 writeFileSync(join(root, "index.html"), html);
