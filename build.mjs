@@ -1,6 +1,7 @@
 // Składa index.html ze źródeł w src/. Użycie: node build.mjs [--min]
 //   --min  dodatkowo usuwa białe znaki z kodu aplikacji (wymaga esbuild; opcjonalne)
 import { readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
@@ -40,11 +41,18 @@ if (process.argv.includes("--min")) {
 app = app.replace(/\n+$/, "");
 
 // Funkcje zamiast stringów: znaki specjalne (np. `$&`) w podmienianym tekście nie mają znaczenia.
-const html = text("template.html")
+let html = text("template.html")
   .replace("@@STYLES@@", () => css)
   .replace("@@PDFJS_MAIN@@", () => b64("vendor", "pdfjs.main.js"))
   .replace("@@PDFJS_WORKER@@", () => b64("vendor", "pdfjs.worker.js"))
   .replace("@@APP@@", () => app);
+
+// CSP: hashe SHA-256 treści inline skryptów zamiast 'unsafe-inline' – liczone z gotowego HTML,
+// więc zawsze pasują do tego, co trafia do pliku.
+const sha256 = (s) => `'sha256-${createHash("sha256").update(s, "utf8").digest("base64")}'`;
+const inlineHashes = [...html.matchAll(/<script>([^]*?)<\/script>/g)].map((m) => sha256(m[1])).join(" ");
+if (!inlineHashes) throw new Error("Brak inline skryptów do policzenia hashy CSP");
+html = html.replace("@@CSP_SCRIPT_HASHES@@", () => inlineHashes);
 
 writeFileSync(join(root, "index.html"), html);
 console.log(`index.html: ${(html.length / 1024 / 1024).toFixed(2)} MB`);
