@@ -134,13 +134,18 @@ button:disabled { opacity: .4; }
 .draw-btn:active { transform: scale(.95); }
 .draw-btn.empty { background: var(--panel2); color: var(--accent); box-shadow: inset 0 0 0 3px var(--accent); }
 .draw-btn .badge { top: -2px; right: -2px; }
+.badge.bump,
+.hud-read b.bump { animation: bump .35s ease-out; }
+@keyframes bump { from { transform: scale(1.5); } to { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .badge.bump,
+  .hud-read b.bump { animation: none; }
+}
 @media (orientation: landscape) and (max-height: 520px) {
   .play { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr); }
   .bar { flex-direction: column; padding: 8px 8px 8px 8px; border-top: 0; border-left: 1px solid var(--line); padding-right: calc(8px + env(safe-area-inset-right)); }
   .draw-btn { margin: 0; }
-}
-
-/* ---------- edytor ---------- */
+}/* ---------- edytor ---------- */
 .edit .topbar .title-input { flex: 1; min-width: 0; }
 .title-input, .text-input, .tile-name, .notes {
   background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font: inherit; width: 100%;
@@ -257,6 +262,10 @@ dialog.dlg.sheet.wide { width: min(720px, 100%); }
 @keyframes pop { from { opacity: .3; transform: scale(.98); } to { opacity: 1; transform: none; } }
 .gcard.tap { cursor: zoom-in; }
 @media (prefers-reduced-motion: reduce) { .gcard { animation: none; } }
+/* nowy dobór kart: karty "wyjeżdżają" z talii (widok gry) */
+.gcard.deal { animation: deal .32s ease-out backwards; }
+@keyframes deal { from { opacity: 0; transform: translateY(16px) scale(.94); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .gcard.deal { animation: none; } }
 .turn-h { margin: 12px 0 6px; font-size: .9rem; color: var(--muted); font-weight: 600; }
 .turn:first-child .turn-h { margin-top: 0; }
 .setting { display: flex; align-items: center; gap: 8px; background: var(--panel); border-radius: var(--radius); padding: 10px 12px 10px 14px; margin-bottom: 10px; }
@@ -3402,7 +3411,12 @@ dialog.dlg { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 0 0 1px var(--
       U = d("nav", { class: "bar", "aria-label": I18N_T("Sterowanie talią") }, A, m, p, g, w),
       R = d("div", { class: "view play" }, u, U);
     rt.append(R);
-    let cur = [];
+    let cur = [],
+      lastDeck = null,
+      lastDisc = null,
+      bump = (el) => {
+        (el.classList.remove("bump"), void el.offsetWidth, el.classList.add("bump"));
+      };
     function lay() {
       let g = u.firstChild;
       if (!g || !g.classList || !g.classList.contains("card-grid") || !cur.length) return;
@@ -3431,12 +3445,12 @@ dialog.dlg { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 0 0 1px var(--
       inn.style.width = Math.floor(cols * cw + (cols - 1) * gp) + "px";
       for (let im of inn.children) im.style.width = Math.floor(cw) + "px";
     }
-    function L() {
+    function L(dp) {
       let ids = (c ? [c] : o.shown).filter((b) => a.get(Ft(b)));
       u.replaceChildren();
       cur = ids.map((b) => a.get(Ft(b)));
       if (ids.length) {
-        let els = ids.map((b) => {
+        let els = ids.map((b, k) => {
           let S = a.get(Ft(b)),
             im = d(
               "div",
@@ -3449,6 +3463,7 @@ dialog.dlg { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 0 0 1px var(--
                 decoding: "async",
               }),
             );
+          dp && (im.classList.add("deal"), k > 0 && (im.style.animationDelay = 60 * k + "ms"));
           !c &&
             ids.length > 1 &&
             (im.classList.add("tap"),
@@ -3480,14 +3495,16 @@ dialog.dlg { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 0 0 1px var(--
           ),
         );
       }
+      let hudDeck = d("b", {}, String(o.draw.length)),
+        hudDisc = d("b", {}, String(o.discard.length));
       u.append(
         d(
           "div",
           { class: "hud-read", "aria-hidden": "true" },
           d("span", { class: "hud-k" }, I18N_T("TALIA")),
-          d("b", {}, String(o.draw.length)),
+          hudDeck,
           d("span", { class: "hud-k" }, I18N_T("ODRZUCONE")),
-          d("b", {}, String(o.discard.length)),
+          hudDisc,
           d(
             "div",
             { class: "hud-bar" },
@@ -3506,7 +3523,14 @@ dialog.dlg { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 0 0 1px var(--
         (l.textContent = o.draw.length),
         (f.textContent = o.discard.length),
         (m.disabled = !o.undo.length),
-        p.classList.toggle("empty", o.draw.length === 0));
+        p.classList.toggle("empty", o.draw.length === 0),
+        lastDeck !== null &&
+          (l.textContent !== lastDeck && bump(l),
+          f.textContent !== lastDisc && bump(f),
+          hudDeck.textContent !== lastDeck && bump(hudDeck),
+          hudDisc.textContent !== lastDisc && bump(hudDisc)),
+        (lastDeck = l.textContent),
+        (lastDisc = f.textContent));
     }
     let ask = (ti, tx) =>
       nt({
@@ -3519,6 +3543,7 @@ dialog.dlg { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 0 0 1px var(--
       });
     async function z() {
       c = null;
+      let reshuffled = null;
       if (!o.draw.length) {
         if (
           await ask(
@@ -3529,14 +3554,15 @@ dialog.dlg { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 0 0 1px var(--
           RS(o);
           je(o, DN, !0);
           s();
+          reshuffled = 1;
         }
-        L();
+        L(reshuffled);
         return;
       }
       let had = o.draw.length;
       je(o, DN);
       s();
-      L();
+      L(1);
       if (had < DN) {
         if (o.discard.length) {
           if (
@@ -3553,14 +3579,14 @@ dialog.dlg { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 0 0 1px var(--
             Ae(o);
             while (o.shown.length < DN && o.draw.length) o.shown.push(o.draw.pop());
             s();
-            L();
+            L(1);
             D(I18N_T("Nowa talia z odrzuconych kart."));
           }
         } else D(I18N_T("Koniec talii."));
       }
     }
     function P() {
-      ((c = null), Ue(o) && (s(), L()));
+      ((c = null), Ue(o) && (s(), L(1)));
     }
     async function y(b) {
       let S = await nt({
@@ -4429,7 +4455,7 @@ dialog.dlg { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 0 0 1px var(--
       }
     );
   }
-  var APP_VER = "2026.11.20-v19";
+  var APP_VER = "2026.11.20-v20";
   function showUpd() {
     if (document.querySelector(".upd-bar")) return;
     let ub = d(
